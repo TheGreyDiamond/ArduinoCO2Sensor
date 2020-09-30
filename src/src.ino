@@ -21,49 +21,24 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiAP.h>
-#include <AsyncTCP.h>
-#include "ESPAsyncWebServer.h"
-#include <DNSServer.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH1106.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+#include <WebServer.h>
 
-DNSServer dnsServer;
-AsyncWebServer server(80);
-Adafruit_SH1106 display(21, 22);
-Adafruit_BME280 bmp;
+#define SDA 21
+#define SCL 22
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
-#define OLED_SDA 21
-#define OLED_SCL 22
+Adafruit_SH1106 display(SDA, SCL);
+Adafruit_BME280 bmp;
+WiFiServer server(80);
 
-#define BMP_SDA 21
-#define BMP_SCL 22
-
-#define NUMFLAKES 10
-#define XPOS 0
-#define YPOS 1
-#define DELTAY 2
-
-class CaptiveRequestHandler : public AsyncWebHandler
-{
-public:
-  CaptiveRequestHandler() {}
-  virtual ~CaptiveRequestHandler() {}
-
-  bool canHandle(AsyncWebServerRequest *request)
-  {
-    return true;
-  }
-
-  void handleRequest(AsyncWebServerRequest *request)
-  {
-
-    if (SPIFFS.exists("/login.html"))
+/*if (SPIFFS.exists("/login.html"))
     {
 
       Serial.println("login.html exists!");
@@ -83,13 +58,7 @@ public:
 
       request->send(response);
     }
-
-    else
-    {
-      request->send(404);
-    }
-  }
-};
+*/
 
 #define logoVersuch2_black_small_width 32
 #define logoVersuch2_black_small_height 32
@@ -110,36 +79,26 @@ static unsigned char logoVersuch2_black_small_bits[] = {
 #error("Height incorrect, please fix Adafruit_SH1106.h!");
 #endif
 
+
+
 void setup()
 {
   Serial.begin(9600);
 
-  // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
-  display.begin(SH1106_SWITCHCAPVCC, 0x3C); // initialize with the I2C addr 0x3D (for the 128x64)
-  // init done
-
-  // Show image buffer on the display hardware.
-  // Since the buffer is intialized with an Adafruit splashscreen
-  // internally, this will display the splashscreen.
+  display.begin(SH1106_SWITCHCAPVCC, 0x3C);
 
   display.display();
   delay(400);
   display.clearDisplay();
   display.display();
   display.clearDisplay();
-
-  ////display.drawBitmap(30, 16,  logo16_glcd_bmp, 16, 16, 1);
-
-  /*uint8_t icons[NUMFLAKES][3];
-    for (uint8_t f = 0; f < NUMFLAKES; f++) {
-      display.drawBitmap(icons[f][XPOS], icons[f][YPOS], logo16_glcd_bmp, 16, 16, WHITE);
-    }*/
   display.drawXBitmap(48, 10, logoVersuch2_black_small_bits, 32, 32, WHITE);
   display.setCursor(16, 48);
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.println("Booting....");
   display.display();
+
   if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED))
   {
     display.clearDisplay();
@@ -155,33 +114,82 @@ void setup()
 
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
+
   WiFi.softAP("IoT CO2 Sensor");
-  dnsServer.start(53, "*", WiFi.softAPIP());
-  server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
-  server.begin();
   Serial.println("Server started!");
+
+  // bool DNSstate = MDNS.begin("sensor");
+
+  // server.on("/", handleRoot);
+
+  // server.on("/inline", []() {
+  //   server.send(200, "text/plain", "this works as well");
+  //});
+
+  //server.onNotFound(handleNotFound);
+  server.begin();
+  //MDNS.addService("http", "tcp", 80);
 
   delay(5000);
 
   bmp.begin(0x76);
-  /*if (!bmp.begin(0x76)) {
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 0);
-    display.println("Fehler.");
-    display.display();
-    } else {*/
-
-  //}
-  // text display tests
-
-  //delay(20000);
 }
 int i = 0;
 
 void loop()
 {
-  dnsServer.processNextRequest();
+  WiFiClient client = server.available();
+  if (client)
+  {
+    Serial.println("Got client");
+    while (client.connected() && !client.available())
+    {
+      delay(1);
+    }
+    String req = client.readStringUntil('\r');
+    int addr_start = req.indexOf(' ');
+    int addr_end = req.indexOf(' ', addr_start + 1);
+    if (addr_start == -1 || addr_end == -1) {
+        Serial.print("Invalid request: ");
+        Serial.println(req);
+        return;
+    }
+    req = req.substring(addr_start + 1, addr_end);
+    Serial.print("Request: ");
+    Serial.println(req);
+
+    String s;
+    if (req == "/")
+    {
+        IPAddress ip = WiFi.localIP();
+        String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
+        s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\r\n\n<!DOCTYPE HTML>\r\n<html>Hello from ESP32 at ";
+        s += ipStr;
+        s += "</html>\r\n\r\n";
+        Serial.println("Sending 200");
+    }
+    else
+    {
+        String errorString = "404 Not Found";
+        if(SPIFFS.exists("/404.html")){
+          Serial.println("Found 404 page");
+          errorString = "";
+          File file = SPIFFS.open("/404.html");
+
+          while (file.available())
+          {
+            errorString+=file.readString();
+          }
+          Serial.println(errorString);
+        }
+
+        s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n" + errorString + "\r\n\r\n";
+        Serial.println("Sending 404");
+    }
+    client.print(s);
+
+    client.stop();
+  }
   if (i == 2000)
   {
     display.clearDisplay();
