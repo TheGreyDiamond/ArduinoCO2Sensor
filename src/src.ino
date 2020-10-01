@@ -282,7 +282,7 @@ String getTimeInLogFormat(){
   {
     out += now.second();
   }
-  return out
+  return out;
 }
 
 String getTimeAndStuff()
