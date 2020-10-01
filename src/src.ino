@@ -37,12 +37,12 @@
 #define ROTARY_ENCODER_A_PIN 15
 #define ROTARY_ENCODER_B_PIN 16
 #define ROTARY_ENCODER_BUTTON_PIN 17
-#define ROTARY_ENCODER_VCC_PIN -1
+#define ROTARY_ENCODER_VCC_PIN 18
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
 int menuPage = 0;
-int menuPageMax = 0;
+int menuPageMax = 1;
 int menuPageMin = 0;
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN);
@@ -81,13 +81,13 @@ void rotary_loop()
   //for some cases we only want to know if value is increased or decreased (typically for menu items)
   if (encoderDelta > 0)
     Serial.print("+");
-  if (menuPage <= menuPageMax)
+  if (menuPage < menuPageMax)
   {
     menuPage++;
   }
 
   if (encoderDelta < 0)
-    if (menuPage >= menuPageMin)
+    if (menuPage > menuPageMin)
     {
       menuPage--;
     }
@@ -181,6 +181,20 @@ String getTimeAndStuff()
   out += now.second();
   return (out);
 }
+
+String getTimeOnly()
+{
+  DateTime now = rtc.now();
+  String out = "";
+
+  out += now.hour();
+  out += ":";
+  out += now.minute();
+  out += ":";
+  out += now.second();
+  return (out);
+}
+
 
 String SendHTML()
 {
@@ -285,14 +299,13 @@ void setup()
   delay(5000);
   Serial.println("Server started!");
 }
-int i = 0;
+int i = 2000;
 
 void loop()
 {
-  if (i == 2000)
+  
+  if (i >= 2000)
   {
-    Serial.println("\n\n!!!!");
-    Serial.println(menuPage);
     if (menuPage == 0)
     {
       display.clearDisplay();
@@ -308,13 +321,20 @@ void loop()
       str += " Grad";
       display.println(str);
       display.display();
-      i = 0;
+      i = 1995;
+    }else if(menuPage == 1){
+      display.clearDisplay();
+      display.setTextSize(1);
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.println(getTimeOnly());
+      display.display();
     }
   }
   i++;
+  
   server.handleClient();
   rotary_loop();
-
   delay(50);
   if (millis() > 20000){ rotaryEncoder.enable();}
 }
