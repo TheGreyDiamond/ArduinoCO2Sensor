@@ -45,10 +45,13 @@
 // NeoPixel brightness, 0 (min) to 255 (max)
 #define BRIGHTNESS 50
 
+#define DISPLAY_TIMOUT 8000
+
 int menuPage = 0;
-int menuPageMax = 1;
+int menuPageMax = 2;
 int menuPageMin = 0;
 int timeSinceShow = 0;
+bool isPagePressable = false;
 
 bool enableLogging = false;
 int lastLog = millis();
@@ -70,6 +73,144 @@ RTC_DS3231 rtc;
 
 WebServer server(80);
 
+
+String getTimeInLogFormat()
+{
+    DateTime now = rtc.now();
+    String out = "";
+    out += now.day();
+    out += ".";
+    out += now.month();
+    out += ".";
+    out += now.year();
+    out += "-";
+    if (String(now.hour()).length() == 1)
+    {
+        out += "0";
+        out += now.hour();
+    }
+    else
+    {
+        out += now.hour();
+    }
+
+    out += ":";
+    if (String(now.minute()).length() == 1)
+    {
+        out += "0";
+        out += now.minute();
+    }
+    else
+    {
+        out += now.minute();
+    }
+    out += ":";
+    if (String(now.second()).length() == 1)
+    {
+        out += "0";
+        out += now.second();
+    }
+    else
+    {
+        out += now.second();
+    }
+    return out;
+}
+
+String getTimeAndStuff()
+{
+    DateTime now = rtc.now();
+    String out = "";
+    out += now.day();
+    out += ".";
+    out += now.month();
+    out += ".";
+    out += now.year();
+    out += " ";
+
+    if (String(now.hour()).length() == 1)
+    {
+        out += "0";
+        out += now.hour();
+    }
+    else
+    {
+        out += now.hour();
+    }
+
+    out += ":";
+    if (String(now.minute()).length() == 1)
+    {
+        out += "0";
+        out += now.minute();
+    }
+    else
+    {
+        out += now.minute();
+    }
+    out += ":";
+    if (String(now.second()).length() == 1)
+    {
+        out += "0";
+        out += now.second();
+    }
+    else
+    {
+        out += now.second();
+    }
+    return (out);
+}
+
+String getDateOnly()
+{
+    DateTime now = rtc.now();
+    String out = "";
+    out += now.day();
+    out += ".";
+    out += now.month();
+    out += ".";
+    out += now.year();
+    return (out);
+}
+
+String getTimeOnly()
+{
+    DateTime now = rtc.now();
+    String out = "";
+
+    if (String(now.hour()).length() == 1)
+    {
+        out += "0";
+        out += now.hour();
+    }
+    else
+    {
+        out += now.hour();
+    }
+
+    out += ":";
+    if (String(now.minute()).length() == 1)
+    {
+        out += "0";
+        out += now.minute();
+    }
+    else
+    {
+        out += now.minute();
+    }
+    out += ":";
+    if (String(now.second()).length() == 1)
+    {
+        out += "0";
+        out += now.second();
+    }
+    else
+    {
+        out += now.second();
+    }
+    return (out);
+}
+
 void rotary_onButtonClick()
 {
   //rotaryEncoder.reset();
@@ -82,7 +223,7 @@ void rotary_onButtonClick()
 
 void handleActivity()
 {
-  if (timeSinceLastAction + 5000 >= millis() && doneInactivityHandler == false)
+  if (timeSinceLastAction + DISPLAY_TIMOUT >= millis() && doneInactivityHandler == false)
   {
     display.dim(false);
     doneInactivityHandler = true;
@@ -90,7 +231,7 @@ void handleActivity()
     Serial.println("!!!! Active");
   }
 
-  if (timeSinceLastAction + 5000 <= millis() && doneActivityHandler == false)
+  if (timeSinceLastAction + DISPLAY_TIMOUT <= millis() && doneActivityHandler == false)
   { // Inactive
     display.dim(true);
     doneInactivityHandler = false;
@@ -243,141 +384,9 @@ void handle_NotFound()
   server.send(404, "text/html", errorString);
 }
 
-String getTimeInLogFormat(){
-  DateTime now = rtc.now();
-  String out = "";
-   out += now.day();
-  out += ".";
-  out += now.month();
-  out += ".";
-  out += now.year();
-  out += "-";
-  if (String(now.hour()).length() == 1)
-  {
-    out += "0";
-    out += now.hour();
-  }
-  else
-  {
-    out += now.hour();
-  }
 
-  out += ":";
-  if (String(now.minute()).length() == 1)
-  {
-    out += "0";
-    out += now.minute();
-  }
-  else
-  {
-    out += now.minute();
-  }
-  out += ":";
-  if (String(now.second()).length() == 1)
-  {
-    out += "0";
-    out += now.second();
-  }
-  else
-  {
-    out += now.second();
-  }
-  return out;
-}
 
-String getTimeAndStuff()
-{
-  DateTime now = rtc.now();
-  String out = "";
-  out += now.day();
-  out += ".";
-  out += now.month();
-  out += ".";
-  out += now.year();
-  out += " ";
 
-  if (String(now.hour()).length() == 1)
-  {
-    out += "0";
-    out += now.hour();
-  }
-  else
-  {
-    out += now.hour();
-  }
-
-  out += ":";
-  if (String(now.minute()).length() == 1)
-  {
-    out += "0";
-    out += now.minute();
-  }
-  else
-  {
-    out += now.minute();
-  }
-  out += ":";
-  if (String(now.second()).length() == 1)
-  {
-    out += "0";
-    out += now.second();
-  }
-  else
-  {
-    out += now.second();
-  }
-  return (out);
-}
-
-String getDateOnly()
-{
-  DateTime now = rtc.now();
-  String out = "";
-  out += now.day();
-  out += ".";
-  out += now.month();
-  out += ".";
-  out += now.year();
-  return (out);
-}
-
-String getTimeOnly()
-{
-  DateTime now = rtc.now();
-  String out = "";
-
-  if (String(now.hour()).length() == 1)
-  {
-    out += "0";
-    out += now.hour();
-  }
-  else
-  {
-    out += now.hour();
-  }
-
-  out += ":";
-  if (String(now.minute()).length() == 1)
-  {
-    out += "0";
-    out += now.minute();
-  }
-  else
-  {
-    out += now.minute();
-  }
-  out += ":";
-  if (String(now.second()).length() == 1)
-  {
-    out += "0";
-    out += now.second();
-  }
-  else
-  {
-    out += now.second();
-  }
-  return (out);
-}
 
 String SendHTML()
 {
@@ -494,6 +503,7 @@ void loop()
     {
       if (menuPage == 0) // Just temperature
       {
+        isPagePressable = false;
         display.clearDisplay();
         display.invertDisplay(false);
         display.setTextColor(WHITE);
@@ -515,6 +525,7 @@ void loop()
       }
       else if (menuPage == 1)
       { // Just time
+      isPagePressable = false;
         display.clearDisplay();
         display.invertDisplay(false);
         display.setTextSize(2);
@@ -524,6 +535,17 @@ void loop()
         display.setCursor(36, 40);
         display.setTextSize(1);
         display.println(getDateOnly());
+        display.display();
+        i = 1995;
+      }else if(menuPage == 2){ // Settings entry page
+        isPagePressable = true;
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextSize(1);
+        display.setCursor(16, 48);
+        display.setTextColor(WHITE);
+        display.println("Einstellungen");
+        display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
         display.display();
         i = 1995;
       }
