@@ -30,6 +30,7 @@
 #include <WebServer.h>
 #include "RTClib.h"
 #include "AiEsp32RotaryEncoder.h"
+#include <Adafruit_NeoPixel.h>
 
 #define SDA 21
 #define SCL 22
@@ -41,11 +42,24 @@
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
+#define LED_PIN     19
+
+// How many NeoPixels are attached to the Arduino?
+#define LED_COUNT  16
+
+// NeoPixel brightness, 0 (min) to 255 (max)
+#define BRIGHTNESS 50
+
 int menuPage = 0;
 int menuPageMax = 1;
 int menuPageMin = 0;
 
+long timeSinceLastAction = 0;
+bool doneInactivityHandler = false;
+bool doneActivityHandler = false;
+
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN);
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
 Adafruit_SH1106 display(SDA, SCL);
 Adafruit_BME280 bmp;
 RTC_DS3231 rtc;
@@ -60,6 +74,26 @@ void rotary_onButtonClick()
   //rotaryEncoder.setBoundaries(-test_limits, test_limits, false);
   //test_limits *= 2;
   Serial.println("CLICK");
+}
+
+void handleActivity(){
+  if(timeSinceLastAction + 5000 <= millis() && doneInactivityHandler == false){
+    display.dim(false);
+    doneInactivityHandler = true;
+    doneActivityHandler = false;
+    Serial.println("!!!! Active");
+  }
+
+  if(timeSinceLastAction + 5000 >= millis() && doneActivityHandler == false){  // Inactive
+    display.dim(true);
+    doneInactivityHandler = false;
+    doneActivityHandler = true;
+    Serial.println("!!!! Inactive");
+  }
+}
+
+void activity(){
+  timeSinceLastAction = millis();
 }
 
 void rotary_loop()
@@ -77,6 +111,7 @@ void rotary_loop()
   //optionally we can ignore whenever there is no change
   if (encoderDelta == 0)
     return;
+  activity();
 
   //for some cases we only want to know if value is increased or decreased (typically for menu items)
   if (encoderDelta > 0)
@@ -266,6 +301,14 @@ void handleRoot()
   server.send(200, "text/html", SendHTML());
 }
 
+void colorWipe(uint32_t color, int wait) {
+  for(int i=0; i<strip.numPixels(); i++) { // For each pixel in strip...
+    strip.setPixelColor(i, color);         //  Set pixel's color (in RAM)
+    strip.show();                          //  Update strip to match
+    delay(wait);                           //  Pause for a moment
+  }
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -339,14 +382,20 @@ void setup()
   rotaryEncoder.setBoundaries(0, 10, true); //minValue, maxValue, cycle values (when max go to min and vice versa)
 
   bmp.begin(0x76);
-  delay(5000);
-  Serial.println("Server started!");
+  strip.begin();
+  strip.show();
+  strip.setBrightness(BRIGHTNESS);
+  colorWipe(strip.Color(  0,   0,   0, 255), 50);
+  delay(1000);
+  
+  activity();
+  Serial.println("Start");
 }
 int i = 2000;
 
 void loop()
 {
-  
+  Serial.println("Start");
   if (i >= 2000)
   {
     Serial.println(menuPage);
@@ -373,7 +422,7 @@ void loop()
       display.setTextSize(1.5);
       display.println(" Pa");
       display.display();
-      i = 1995;
+      i = 1990;
     }else if(menuPage == 1){
       display.clearDisplay();
       display.invertDisplay(false);
@@ -389,8 +438,10 @@ void loop()
     }
   }
   i++;
-  
+  Serial.println("Loooopyyyy done");
   server.handleClient();
+  Serial.println("Hit 1");
+  handleActivity();
   rotary_loop();
   delay(50);
   if (millis() > 20000){ rotaryEncoder.enable();}
