@@ -174,12 +174,39 @@ String getTimeAndStuff()
   out += now.year();
   out += " ";
 
-  out += now.hour();
+if(String(now.hour()).length() == 1){
+    out += "0";
+    out += now.hour();
+  }else{
+    out += now.hour();
+  }
+  
   out += ":";
-  out += now.minute();
+  if(String(now.minute()).length() == 1){
+    out += "0";
+    out += now.minute();
+  }else{
+    out += now.minute();
+  }
   out += ":";
-  out += now.second();
+  if(String(now.second()).length() == 1){
+    out += "0";
+    out += now.second();
+  }else{
+    out += now.second();
+  }
   return (out);
+}
+
+String getDateOnly(){
+  DateTime now = rtc.now();
+  String out = "";
+  out += now.day();
+  out += ".";
+  out += now.month();
+  out += ".";
+  out += now.year();
+  return(out);
 }
 
 String getTimeOnly()
@@ -187,11 +214,27 @@ String getTimeOnly()
   DateTime now = rtc.now();
   String out = "";
 
-  out += now.hour();
+  if(String(now.hour()).length() == 1){
+    out += "0";
+    out += now.hour();
+  }else{
+    out += now.hour();
+  }
+  
   out += ":";
-  out += now.minute();
+  if(String(now.minute()).length() == 1){
+    out += "0";
+    out += now.minute();
+  }else{
+    out += now.minute();
+  }
   out += ":";
-  out += now.second();
+  if(String(now.second()).length() == 1){
+    out += "0";
+    out += now.second();
+  }else{
+    out += now.second();
+  }
   return (out);
 }
 
@@ -306,29 +349,43 @@ void loop()
   
   if (i >= 2000)
   {
+    Serial.println(menuPage);
     if (menuPage == 0)
     {
       display.clearDisplay();
-      display.setTextSize(1);
+      display.invertDisplay(false);
+      //display.setTextSize(1);
       display.setTextColor(WHITE);
-      display.setCursor(0, 0);
+      /*display.setCursor(0, 0);
       display.println("Es sind");
-      display.println("");
-
+      display.println("");*/
+      display.setCursor(0, 0);
       display.setTextSize(2);
       display.setTextColor(WHITE);
       String str = String(bmp.readTemperature());
-      str += " Grad";
+      str += " C";
       display.println(str);
+      str = String(bmp.readHumidity());
+      str += " %";
+      display.println(str);
+      str = String(bmp.readPressure());
+      display.print(str);
+      display.setTextSize(1.5);
+      display.println(" Pa");
       display.display();
       i = 1995;
     }else if(menuPage == 1){
       display.clearDisplay();
-      display.setTextSize(1);
-      display.setTextColor(WHITE);
+      display.invertDisplay(false);
       display.setTextSize(2);
+      display.setCursor(16, 20);
+      display.setTextColor(WHITE);
       display.println(getTimeOnly());
+      display.setCursor(36, 40);
+      display.setTextSize(1);
+      display.println(getDateOnly());
       display.display();
+      i = 1995;
     }
   }
   i++;
