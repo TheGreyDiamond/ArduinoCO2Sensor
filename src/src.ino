@@ -35,7 +35,7 @@
 #define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN 18
 
-#define VERSION "V1.2.2"
+#define VERSION "V1.2.4"
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
@@ -47,9 +47,11 @@
 
 #define DISPLAY_TIMOUT 8000
 
-int menuPage = 0;
+String menuPage = "0.0";
 int menuPageMax = 2;
 int menuPageMin = 0;
+int menuSubPageMin = 0;
+int menuSubPageMax = 1;
 int timeSinceShow = 0;
 
 bool isPagePressable = false;
@@ -220,12 +222,10 @@ void rotary_onButtonClick()
   //test_limits *= 2;
   if (isPagePressable)
   {
-    if (subMenu == 0)
+
+    if (menuPage == "2.0") // Time to open settings
     {
-      if (menuPage == 2) // Time to open settings
-      {
-        subMenu = 1;
-      }
+      menuPage = "2.1";
     }
   }
 }
@@ -247,6 +247,25 @@ void handleActivity()
     doneActivityHandler = true;
     Serial.println("!!!! Inactive");
   }
+}
+
+String getValue(String data, char separator, int index)
+{
+  int found = 0;
+  int strIndex[] = {0, -1};
+  int maxIndex = data.length() - 1;
+
+  for (int i = 0; i <= maxIndex && found <= index; i++)
+  {
+    if (data.charAt(i) == separator || i == maxIndex)
+    {
+      found++;
+      strIndex[0] = strIndex[1] + 1;
+      strIndex[1] = (i == maxIndex) ? i + 1 : i;
+    }
+  }
+
+  return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
 void activity()
@@ -273,18 +292,50 @@ void rotary_loop()
 
   //for some cases we only want to know if value is increased or decreased (typically for menu items)
   if (encoderDelta > 0)
-    Serial.print("+");
-  if (menuPage < menuPageMax)
   {
-    menuPage++;
-  }
-
-  if (encoderDelta < 0)
-    if (menuPage > menuPageMin)
+    Serial.println("Enocder up");
+    if (getValue(menuPage, '.', 1) == "0")
     {
-      menuPage--;
+      Serial.println("menu handler PAGE 0 is " + getValue(menuPage, '.', 0));
+      if (getValue(menuPage, '.', 0).toInt() < menuPageMin)
+      {
+        Serial.println("Doing something");
+        menuPage = String(getValue(menuPage, '.', 0).toInt() + 1) + "." + getValue(menuPage, '.', 1);
+      }
     }
-  Serial.print("-");
+    else
+    {
+      Serial.println("submenu handler");
+      if (getValue(menuPage, '.', 1).toInt() < menuSubPageMin)
+      {
+        Serial.println("Doing something");
+        menuPage = getValue(menuPage, '.', 0) + "." + String(getValue(menuPage, '.', 1).toInt() + 1);
+      }
+    }
+  }
+  else
+  {
+    Serial.println("Enocder down");
+    if (getValue(menuPage, '.', 1) == "0")
+    {
+      Serial.println("menu handler");
+      if (getValue(menuPage, '.', 0).toInt() > menuPageMax)
+      {
+        Serial.println("Doing something");
+        menuPage = String(getValue(menuPage, '.', 0).toInt() - 1) + "." + getValue(menuPage, '.', 1);
+        Serial.println(menuPage);
+      }
+    }
+    else
+    {
+      Serial.println("Submenu handler");
+      if (getValue(menuPage, '.', 1).toInt() > menuSubPageMax)
+      {
+        Serial.println("Doing something");
+        menuPage = getValue(menuPage, '.', 0) + "." + String(getValue(menuPage, '.', 1).toInt() - 1);
+      }
+    }
+  }
 
   //for other cases we want to know what is current value. Additionally often we only want if something changed
   //example: when using rotary encoder to set termostat temperature, or sound volume etc
@@ -507,9 +558,7 @@ void loop()
     Serial.println(menuPage);
     if (handleWindows())
     {
-      if (subMenu == 0)
-      {
-        if (menuPage == 0) // Just temperature
+        if (menuPage == "0.0") // Just temperature
         {
           isPagePressable = false;
           display.clearDisplay();
@@ -531,7 +580,7 @@ void loop()
           display.display();
           i = 1990;
         }
-        else if (menuPage == 1)
+        else if (menuPage == "1.0")
         { // Just time
           isPagePressable = false;
           display.clearDisplay();
@@ -546,7 +595,7 @@ void loop()
           display.display();
           i = 1995;
         }
-        else if (menuPage == 2)
+        else if (menuPage == "2.0")
         { // Settings entry page
           isPagePressable = true;
           display.clearDisplay();
@@ -560,7 +609,7 @@ void loop()
           i = 1995;
         }
       }
-      else
+      if(menuPage == "2.1")
       {
         display.clearDisplay();
         display.invertDisplay(false);
@@ -571,7 +620,6 @@ void loop()
         display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
         display.display();
       }
-    }
   }
   i++;
   server.handleClient();
