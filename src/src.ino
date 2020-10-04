@@ -33,7 +33,7 @@
 #define ROTARY_ENCODER_A_PIN 15
 #define ROTARY_ENCODER_B_PIN 16
 #define ROTARY_ENCODER_BUTTON_PIN 17
-#define ROTARY_ENCODER_VCC_PIN 18
+#define ROTARY_ENCODER_VCC_PIN -1
 
 #define VERSION "V1.2.4"
 
@@ -50,8 +50,8 @@
 String menuPage = "0.0";
 int menuPageMax = 2;
 int menuPageMin = 0;
-int menuSubPageMin = 0;
-int menuSubPageMax = 1;
+int menuSubPageMin = 1;
+int menuSubPageMax = 3;
 int timeSinceShow = 0;
 
 bool isPagePressable = false;
@@ -226,6 +226,15 @@ void rotary_onButtonClick()
     if (menuPage == "2.0") // Time to open settings
     {
       menuPage = "2.1";
+      menuSubPageMax = 3;
+    }
+    else if (menuPage == "2.1")
+    {
+      menuPage = "2.0";
+    }
+    else if (menuPage == "2.3")
+    {
+      makeInfoWindow("Test Warning", 1);
     }
   }
 }
@@ -297,7 +306,7 @@ void rotary_loop()
     if (getValue(menuPage, '.', 1) == "0")
     {
       Serial.println("menu handler PAGE 0 is " + getValue(menuPage, '.', 0));
-      if (getValue(menuPage, '.', 0).toInt() < menuPageMin)
+      if (getValue(menuPage, '.', 0).toInt() < menuPageMax)
       {
         Serial.println("Doing something");
         menuPage = String(getValue(menuPage, '.', 0).toInt() + 1) + "." + getValue(menuPage, '.', 1);
@@ -306,7 +315,7 @@ void rotary_loop()
     else
     {
       Serial.println("submenu handler");
-      if (getValue(menuPage, '.', 1).toInt() < menuSubPageMin)
+      if (getValue(menuPage, '.', 1).toInt() < menuSubPageMax)
       {
         Serial.println("Doing something");
         menuPage = getValue(menuPage, '.', 0) + "." + String(getValue(menuPage, '.', 1).toInt() + 1);
@@ -319,7 +328,7 @@ void rotary_loop()
     if (getValue(menuPage, '.', 1) == "0")
     {
       Serial.println("menu handler");
-      if (getValue(menuPage, '.', 0).toInt() > menuPageMax)
+      if (getValue(menuPage, '.', 0).toInt() > menuPageMin)
       {
         Serial.println("Doing something");
         menuPage = String(getValue(menuPage, '.', 0).toInt() - 1) + "." + getValue(menuPage, '.', 1);
@@ -329,7 +338,7 @@ void rotary_loop()
     else
     {
       Serial.println("Submenu handler");
-      if (getValue(menuPage, '.', 1).toInt() > menuSubPageMax)
+      if (getValue(menuPage, '.', 1).toInt() > menuSubPageMin)
       {
         Serial.println("Doing something");
         menuPage = getValue(menuPage, '.', 0) + "." + String(getValue(menuPage, '.', 1).toInt() - 1);
@@ -558,58 +567,58 @@ void loop()
     Serial.println(menuPage);
     if (handleWindows())
     {
-        if (menuPage == "0.0") // Just temperature
-        {
-          isPagePressable = false;
-          display.clearDisplay();
-          display.invertDisplay(false);
-          display.setTextColor(WHITE);
-          display.setCursor(0, 0);
-          display.setTextSize(2);
-          display.setTextColor(WHITE);
-          String str = String(bmp.readTemperature());
-          str += " C";
-          display.println(str);
-          str = String(bmp.readHumidity());
-          str += " %";
-          display.println(str);
-          str = String(bmp.readPressure());
-          display.print(str);
-          display.setTextSize(1.5);
-          display.println(" Pa");
-          display.display();
-          i = 1990;
-        }
-        else if (menuPage == "1.0")
-        { // Just time
-          isPagePressable = false;
-          display.clearDisplay();
-          display.invertDisplay(false);
-          display.setTextSize(2);
-          display.setCursor(16, 20);
-          display.setTextColor(WHITE);
-          display.println(getTimeOnly());
-          display.setCursor(36, 40);
-          display.setTextSize(1);
-          display.println(getDateOnly());
-          display.display();
-          i = 1995;
-        }
-        else if (menuPage == "2.0")
-        { // Settings entry page
-          isPagePressable = true;
-          display.clearDisplay();
-          display.invertDisplay(false);
-          display.setTextSize(1);
-          display.setCursor(16, 48);
-          display.setTextColor(WHITE);
-          display.println("Einstellungen");
-          display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
-          display.display();
-          i = 1995;
-        }
+      if (menuPage == "0.0") // Just temperature
+      {
+        isPagePressable = false;
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextColor(WHITE);
+        display.setCursor(0, 0);
+        display.setTextSize(2);
+        display.setTextColor(WHITE);
+        String str = String(bmp.readTemperature());
+        str += " C";
+        display.println(str);
+        str = String(bmp.readHumidity());
+        str += " %";
+        display.println(str);
+        str = String(bmp.readPressure());
+        display.print(str);
+        display.setTextSize(1.5);
+        display.println(" Pa");
+        display.display();
+        i = 1990;
       }
-      if(menuPage == "2.1")
+      else if (menuPage == "1.0")
+      { // Just time
+        isPagePressable = false;
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextSize(2);
+        display.setCursor(16, 20);
+        display.setTextColor(WHITE);
+        display.println(getTimeOnly());
+        display.setCursor(36, 40);
+        display.setTextSize(1);
+        display.println(getDateOnly());
+        display.display();
+        i = 1995;
+      }
+      else if (menuPage == "2.0")
+      { // Settings entry page
+        isPagePressable = true;
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextSize(1);
+        display.setCursor(16, 48);
+        display.setTextColor(WHITE);
+        display.println("Einstellungen");
+        display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
+        display.display();
+        i = 1995;
+      }
+
+      if (menuPage == "2.1")
       {
         display.clearDisplay();
         display.invertDisplay(false);
@@ -620,6 +629,31 @@ void loop()
         display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
         display.display();
       }
+      if (menuPage == "2.2")
+      {
+        display.clearDisplay();
+        display.invertDisplay(true);
+        display.setTextSize(1);
+        display.setCursor(16, 48);
+        display.setTextColor(WHITE);
+        display.println("Test Seite");
+        display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
+        display.display();
+        isPagePressable = false;
+      }
+      if (menuPage == "2.3")
+      {
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextSize(1);
+        display.setCursor(16, 48);
+        display.setTextColor(WHITE);
+        display.println("Make a test popup");
+        display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
+        display.display();
+        isPagePressable = true;
+      }
+    }
   }
   i++;
   server.handleClient();
