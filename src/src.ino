@@ -35,7 +35,7 @@
 #define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN -1
 
-#define VERSION "V1.2.4"
+#define VERSION "V1.2.6"
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
@@ -59,6 +59,7 @@ int subMenu = 0;
 
 bool enableLogging = false;
 int lastLog = millis();
+int logIntervall = 20000;
 
 String infoText = VERSION;
 int infoIcon = -1;
@@ -562,6 +563,12 @@ int i = 2000;
 
 void loop()
 {
+  if(enableLogging){
+    if(lastLog + logIntervall <= millis()){
+      executeLogAction();
+      lastLog = millis();
+    }
+  }
   if (i >= 2000)
   {
     Serial.println(menuPage);
