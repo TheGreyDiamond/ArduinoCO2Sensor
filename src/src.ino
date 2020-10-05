@@ -384,6 +384,43 @@ void rotary_loop()
     }
 */
 
+void updateLEDring(){
+  /* 
+  * 250-400ppm       dark green
+  * 400-1,000ppm     green
+  * 1,000-2,000ppm   yellow
+  * 2,000-5,000 ppm  orange
+  * 5,000            red
+  * >40,000 ppm      red blinking        aka u ded soon   
+  */
+  co2Sensor.measureAirQuality();
+  int mesValue = co2Sensor.CO2;
+  if(mesValue < 400){
+    colorWipe(strip.Color(0, 255, 0, 0), 50);
+  }
+  if(mesValue >= 400 and mesValue <= 1000){
+    colorWipe(strip.Color(0, 150, 0, 0), 50);
+  }
+  if(mesValue >= 1001 and mesValue <= 2000){
+    colorWipe(strip.Color(255, 255, 0, 0), 50);
+  }
+  if(mesValue >= 2001 and mesValue <= 5000){
+    colorWipe(strip.Color(255, 165, 0, 0), 50);
+  }
+  if(mesValue >= 5000 and mesValue <= 8000){
+    colorWipe(strip.Color(255, 0, 0, 0), 50);
+  }
+  if(mesValue >= 40000){
+    colorWipe(strip.Color(255, 0, 0, 0), 50);
+    delay(200);
+    colorWipe(strip.Color(0, 0, 0, 0), 1);
+    colorWipe(strip.Color(255, 0, 0, 0), 50);
+  }
+
+  
+  
+  }
+
 void makeInfoWindow(String text, int icon)
 {
   Serial.println("[LOG] Made info window");
@@ -590,6 +627,7 @@ int i = 2000;
 
 void loop()
 {
+  updateLEDring();
   loopI2++;
   if(enableLogging){
     if(lastLog + logIntervall <= millis()){
