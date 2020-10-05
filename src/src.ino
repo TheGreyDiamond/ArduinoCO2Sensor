@@ -44,7 +44,7 @@
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 16
 // NeoPixel brightness, 0 (min) to 255 (max)
-#define BRIGHTNESS 50
+#define BRIGHTNESS 60
 
 #define DISPLAY_TIMOUT 8000
 
@@ -57,6 +57,7 @@ int timeSinceShow = 0;
 
 bool isPagePressable = false;
 int subMenu = 0;
+bool testCriticalCO2lvl = false;
 
 bool enableLogging = false;
 int lastLog = millis();
@@ -231,7 +232,7 @@ void rotary_onButtonClick()
     if (menuPage == "3.0") // Time to open settings
     {
       menuPage = "3.1";
-      menuSubPageMax = 3;
+      menuSubPageMax = 4;
     }
     else if (menuPage == "3.1")
     {
@@ -240,6 +241,8 @@ void rotary_onButtonClick()
     else if (menuPage == "3.3")
     {
       makeInfoWindow("Test Warning", 1);
+    }else if(menuPage == "3.4"){
+      testCriticalCO2lvl = !testCriticalCO2lvl;
     }
   }
 }
@@ -395,30 +398,34 @@ void updateLEDring(){
   */
   co2Sensor.measureAirQuality();
   int mesValue = co2Sensor.CO2;
-  if(mesValue < 400){
-    colorWipe(strip.Color(0, 255, 0, 0), 50);
+  if(testCriticalCO2lvl == false){
+    if(mesValue < 400){
+      colorWipe(strip.Color(0, 255, 0, 0), 50);
+    }
+    if(mesValue >= 400 and mesValue <= 1000){
+      colorWipe(strip.Color(0, 150, 0, 0), 50);
+    }
+    if(mesValue >= 1001 and mesValue <= 2000){
+      colorWipe(strip.Color(255, 255, 0, 0), 50);
+    }
+    if(mesValue >= 2001 and mesValue <= 5000){
+      colorWipe(strip.Color(255, 165, 0, 0), 50);
+    }
+    if(mesValue >= 5000 and mesValue <= 8000){
+      colorWipe(strip.Color(255, 0, 0, 0), 50);
+    }
+    if(mesValue >= 40000){
+      colorWipe(strip.Color(255, 0, 0, 0), 50);
+      delay(200);
+      colorWipe(strip.Color(0, 0, 0, 0), 1);
+      colorWipe(strip.Color(255, 0, 0, 0), 50);
+    }
+  }else{
+      colorWipe(strip.Color(255, 0, 0, 0), 50);
+      delay(200);
+      colorWipe(strip.Color(0, 0, 0, 0), 1);
+      colorWipe(strip.Color(255, 0, 0, 0), 50);
   }
-  if(mesValue >= 400 and mesValue <= 1000){
-    colorWipe(strip.Color(0, 150, 0, 0), 50);
-  }
-  if(mesValue >= 1001 and mesValue <= 2000){
-    colorWipe(strip.Color(255, 255, 0, 0), 50);
-  }
-  if(mesValue >= 2001 and mesValue <= 5000){
-    colorWipe(strip.Color(255, 165, 0, 0), 50);
-  }
-  if(mesValue >= 5000 and mesValue <= 8000){
-    colorWipe(strip.Color(255, 0, 0, 0), 50);
-  }
-  if(mesValue >= 40000){
-    colorWipe(strip.Color(255, 0, 0, 0), 50);
-    delay(200);
-    colorWipe(strip.Color(0, 0, 0, 0), 1);
-    colorWipe(strip.Color(255, 0, 0, 0), 50);
-  }
-
-  
-  
   }
 
 void makeInfoWindow(String text, int icon)
@@ -624,17 +631,33 @@ void setup()
   Serial.println("Start");
 }
 int i = 2000;
+int ringUpdate = 0;
 
 void loop()
 {
-  updateLEDring();
-  loopI2++;
+  Serial.println("LOOP");
+  if(ringUpdate >= 20){
+    ringUpdate = 0;
+    updateLEDring();
+    Serial.println("Update led ring");
+  }
+  ringUpdate++;
+  server.handleClient();
+  handleActivity();
+  rotary_loop();
+  delay(50);
+  if (millis() > 20000)
+  {
+    rotaryEncoder.enable();
+  }
+  
   if(enableLogging){
     if(lastLog + logIntervall <= millis()){
       executeLogAction();
       lastLog = millis();
     }
   }
+
   if (i >= 2000)
   {
     Serial.println(menuPage);
@@ -753,15 +776,19 @@ void loop()
         display.display();
         isPagePressable = true;
       }
+      if (menuPage == "3.4")
+      {
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextSize(1);
+        display.setCursor(16, 48);
+        display.setTextColor(WHITE);
+        display.println("Test critical light");
+        display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
+        display.display();
+        isPagePressable = true;
+      }
     }
   }
   i++;
-  server.handleClient();
-  handleActivity();
-  rotary_loop();
-  delay(50);
-  if (millis() > 20000)
-  {
-    rotaryEncoder.enable();
-  }
 }
