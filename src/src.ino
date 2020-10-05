@@ -36,7 +36,7 @@
 #define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN -1
 
-#define VERSION "V1.2.6"
+#define VERSION "V1.2.8 "
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
@@ -49,7 +49,7 @@
 #define DISPLAY_TIMOUT 8000
 
 String menuPage = "0.0";
-int menuPageMax = 2;
+int menuPageMax = 3;
 int menuPageMin = 0;
 int menuSubPageMin = 1;
 int menuSubPageMax = 3;
@@ -62,7 +62,7 @@ bool enableLogging = false;
 int lastLog = millis();
 int logIntervall = 20000;
 
-String infoText = VERSION;
+String infoText = String(VERSION) + " " + String(__DATE__) + " " + String(__TIME__);
 int infoIcon = -1;
 
 int loopI2 = 0;
@@ -580,6 +580,7 @@ void setup()
   strip.setBrightness(BRIGHTNESS);
   colorWipe(strip.Color(0, 0, 0, 255), 50);
   delay(500);
+  timeSinceShow = millis();
 
   activity();
   
@@ -633,12 +634,20 @@ void loop()
         display.setCursor(0, 0);
         display.setTextSize(2);
         display.setTextColor(WHITE);
-        String str = "CO2: " + String(co2Sensor.CO2);
-        str += " ppm";
-        display.println(str);
-        str = "TVOC: " + String(co2Sensor.TVOC);
+        display.setTextSize(2);
+        display.println("CO2: ");
+        display.print(" ");
+        display.print(co2Sensor.CO2);
+        display.println(" ppm");
+        //String str = "CO2: " + String(co2Sensor.CO2);
+        display.println("TVOC: ");
+        display.print(" ");
+        display.print(co2Sensor.TVOC);
+        display.println(" ppb");
+        
+        /*str = "TVOC: " + String(co2Sensor.TVOC);
         str += " ppb";
-        display.println(str);
+        display.println(str);*/
         display.display();
         i = 1990;
       }
