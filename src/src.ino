@@ -25,6 +25,7 @@
 #include "RTClib.h"
 #include "AiEsp32RotaryEncoder.h"
 #include <Adafruit_NeoPixel.h>
+#include "SparkFun_SGP30_Arduino_Library.h"
 #include "icons.c"
 
 #define SDA 21
@@ -64,6 +65,8 @@ int logIntervall = 20000;
 String infoText = VERSION;
 int infoIcon = -1;
 
+int loopI2 = 0;
+
 long timeSinceLastAction = 0;
 bool doneInactivityHandler = false;
 bool doneActivityHandler = false;
@@ -75,6 +78,7 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
 Adafruit_SH1106 display(SDA, SCL);
 Adafruit_BME280 bmp;
 RTC_DS3231 rtc;
+SGP30 co2Sensor;
 
 WebServer server(80);
 
@@ -224,16 +228,16 @@ void rotary_onButtonClick()
   if (isPagePressable)
   {
 
-    if (menuPage == "2.0") // Time to open settings
+    if (menuPage == "3.0") // Time to open settings
     {
-      menuPage = "2.1";
+      menuPage = "3.1";
       menuSubPageMax = 3;
     }
-    else if (menuPage == "2.1")
+    else if (menuPage == "3.1")
     {
-      menuPage = "2.0";
+      menuPage = "3.0";
     }
-    else if (menuPage == "2.3")
+    else if (menuPage == "3.3")
     {
       makeInfoWindow("Test Warning", 1);
     }
@@ -496,6 +500,12 @@ void colorWipe(uint32_t color, int wait)
   }
 }
 
+
+
+
+
+
+
 void setup()
 {
   Serial.begin(9600);
@@ -550,6 +560,21 @@ void setup()
   rotaryEncoder.setBoundaries(0, menuPageMax * 2, true); //minValue, maxValue, cycle values (when max go to min and vice versa)
 
   bmp.begin(0x76);
+  Wire.begin();
+  if (co2Sensor.begin() == false) {
+    Serial.println("No SGP30 Detected. Check connections.");
+  }
+  co2Sensor.initAirQuality();
+  int count = 0;
+  //First fifteen readings will be
+  //CO2: 400 ppm  TVOC: 0 ppb
+  while(count <= 16){
+    co2Sensor.measureAirQuality();
+    count++;
+    delay(150);
+    Serial.println(count);
+  }
+  
   strip.begin();
   strip.show();
   strip.setBrightness(BRIGHTNESS);
@@ -557,12 +582,14 @@ void setup()
   delay(500);
 
   activity();
+  
   Serial.println("Start");
 }
 int i = 2000;
 
 void loop()
 {
+  loopI2++;
   if(enableLogging){
     if(lastLog + logIntervall <= millis()){
       executeLogAction();
@@ -596,7 +623,26 @@ void loop()
         display.display();
         i = 1990;
       }
-      else if (menuPage == "1.0")
+      if (menuPage == "1.0") // Just co2 + TVOC
+      {
+        co2Sensor.measureAirQuality();
+        isPagePressable = false;
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextColor(WHITE);
+        display.setCursor(0, 0);
+        display.setTextSize(2);
+        display.setTextColor(WHITE);
+        String str = "CO2: " + String(co2Sensor.CO2);
+        str += " ppm";
+        display.println(str);
+        str = "TVOC: " + String(co2Sensor.TVOC);
+        str += " ppb";
+        display.println(str);
+        display.display();
+        i = 1990;
+      }
+      else if (menuPage == "2.0")
       { // Just time
         isPagePressable = false;
         display.clearDisplay();
@@ -611,7 +657,7 @@ void loop()
         display.display();
         i = 1995;
       }
-      else if (menuPage == "2.0")
+      else if (menuPage == "3.0")
       { // Settings entry page
         isPagePressable = true;
         display.clearDisplay();
@@ -625,7 +671,7 @@ void loop()
         i = 1995;
       }
 
-      if (menuPage == "2.1")
+      if (menuPage == "3.1")
       {
         display.clearDisplay();
         display.invertDisplay(false);
@@ -636,7 +682,7 @@ void loop()
         display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
         display.display();
       }
-      if (menuPage == "2.2")
+      if (menuPage == "3.2")
       {
         display.clearDisplay();
         display.invertDisplay(true);
@@ -648,7 +694,7 @@ void loop()
         display.display();
         isPagePressable = false;
       }
-      if (menuPage == "2.3")
+      if (menuPage == "3.3")
       {
         display.clearDisplay();
         display.invertDisplay(false);
