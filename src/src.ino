@@ -48,6 +48,9 @@
 
 #define DISPLAY_TIMOUT 8000
 
+bool updateRing = true;
+int lastAlarmLvl = 0;
+
 String menuPage = "0.0";
 int menuPageMax = 3;
 int menuPageMin = 0;
@@ -232,17 +235,35 @@ void rotary_onButtonClick()
     if (menuPage == "3.0") // Time to open settings
     {
       menuPage = "3.1";
-      menuSubPageMax = 4;
+      menuSubPageMax = 5;
     }
     else if (menuPage == "3.1")
     {
       menuPage = "3.0";
     }
-    else if (menuPage == "3.3")
+    else if (menuPage == "3.2")
+    {
+      if (enableLogging)
+      {
+        makeInfoWindow("Stopping logging", 1);
+        enableLogging = false;
+      }
+      else
+      {
+        makeInfoWindow("Start logging", 1);
+        enableLogging = true;
+      }
+    }
+    else if (menuPage == "3.4")
     {
       makeInfoWindow("Test Warning", 1);
-    }else if(menuPage == "3.4"){
+    }
+    else if (menuPage == "3.5")
+    {
+      Serial.println("!------------!");
+      Serial.println(testCriticalCO2lvl);
       testCriticalCO2lvl = !testCriticalCO2lvl;
+      Serial.println(testCriticalCO2lvl);
     }
   }
 }
@@ -387,46 +408,95 @@ void rotary_loop()
     }
 */
 
-void updateLEDring(){
+void updateLEDring()
+{
   /* 
   * 250-400ppm       dark green
   * 400-1,000ppm     green
   * 1,000-2,000ppm   yellow
   * 2,000-5,000 ppm  orange
   * 5,000            red
-  * >40,000 ppm      red blinking        aka u ded soon   
+  * >40,000 ppm      red blinking        aka u ded soon     updateRing
   */
   co2Sensor.measureAirQuality();
   int mesValue = co2Sensor.CO2;
-  if(testCriticalCO2lvl == false){
-    if(mesValue < 400){
+  int currentAlarmLvl = 1;
+  if (testCriticalCO2lvl == false)
+  {
+    if (mesValue < 400)
+    {
+      currentAlarmLvl = 2;
+    }
+    if (mesValue >= 400 and mesValue <= 1000)
+    {
+      currentAlarmLvl = 3;
+    }
+    if (mesValue >= 1001 and mesValue <= 2000)
+    {
+      currentAlarmLvl = 4;
+    }
+    if (mesValue >= 2001 and mesValue <= 5000)
+    {
+      currentAlarmLvl = 5;
+    }
+    if (mesValue >= 5000 and mesValue <= 8000)
+    {
+      currentAlarmLvl = 6;
+    }
+    if (mesValue >= 40000)
+    {
+      currentAlarmLvl = 7;
+    }
+  }
+  else
+  {
+    colorWipe(strip.Color(255, 0, 0, 0), 50);
+    delay(200);
+    colorWipe(strip.Color(0, 0, 0, 0), 1);
+    colorWipe(strip.Color(255, 0, 0, 0), 50);
+  }
+
+  if (currentAlarmLvl != lastAlarmLvl)
+  {
+    updateRing = true;
+    lastAlarmLvl = currentAlarmLvl;
+  }
+  else
+  {
+    updateRing = false;
+  }
+  if (updateRing && testCriticalCO2lvl == false)
+  {
+    Serial.println("Actually ring update");
+    if (currentAlarmLvl == 2)
+    {
       colorWipe(strip.Color(0, 255, 0, 0), 50);
     }
-    if(mesValue >= 400 and mesValue <= 1000){
+    if (currentAlarmLvl == 3)
+    {
       colorWipe(strip.Color(0, 150, 0, 0), 50);
     }
-    if(mesValue >= 1001 and mesValue <= 2000){
+    if (currentAlarmLvl == 4)
+    {
       colorWipe(strip.Color(255, 255, 0, 0), 50);
     }
-    if(mesValue >= 2001 and mesValue <= 5000){
+    if (currentAlarmLvl == 5)
+    {
       colorWipe(strip.Color(255, 165, 0, 0), 50);
     }
-    if(mesValue >= 5000 and mesValue <= 8000){
+    if (currentAlarmLvl == 6)
+    {
       colorWipe(strip.Color(255, 0, 0, 0), 50);
     }
-    if(mesValue >= 40000){
+    if (currentAlarmLvl == 7)
+    {
       colorWipe(strip.Color(255, 0, 0, 0), 50);
       delay(200);
       colorWipe(strip.Color(0, 0, 0, 0), 1);
       colorWipe(strip.Color(255, 0, 0, 0), 50);
     }
-  }else{
-      colorWipe(strip.Color(255, 0, 0, 0), 50);
-      delay(200);
-      colorWipe(strip.Color(0, 0, 0, 0), 1);
-      colorWipe(strip.Color(255, 0, 0, 0), 50);
   }
-  }
+}
 
 void makeInfoWindow(String text, int icon)
 {
@@ -464,6 +534,7 @@ boolean handleWindows()
 
 void executeLogAction()
 {
+  Serial.println("Tried to start log");
   File fileToAppend = SPIFFS.open("/log.txt", FILE_APPEND);
   if (!fileToAppend)
   {
@@ -472,8 +543,9 @@ void executeLogAction()
     return;
   }
   String logLine = getTimeInLogFormat();
+  co2Sensor.measureAirQuality();
   logLine += ";";
-  logLine += String(bmp.readTemperature()) + ";" + String(bmp.readHumidity()) + ";" + String(bmp.readPressure()) + "\n";
+  logLine += String(bmp.readTemperature()) + ";" + String(bmp.readHumidity()) + ";" + String(bmp.readPressure()) + ";" + String(co2Sensor.CO2) + ";" + String(co2Sensor.TVOC) + "\n";
   if (fileToAppend.println("APPENDED LINE"))
   {
     Serial.println("File content was appended");
@@ -544,12 +616,6 @@ void colorWipe(uint32_t color, int wait)
   }
 }
 
-
-
-
-
-
-
 void setup()
 {
   Serial.begin(9600);
@@ -605,20 +671,22 @@ void setup()
 
   bmp.begin(0x76);
   Wire.begin();
-  if (co2Sensor.begin() == false) {
+  if (co2Sensor.begin() == false)
+  {
     Serial.println("No SGP30 Detected. Check connections.");
   }
   co2Sensor.initAirQuality();
   int count = 0;
   //First fifteen readings will be
   //CO2: 400 ppm  TVOC: 0 ppb
-  while(count <= 16){
+  while (count <= 16)
+  {
     co2Sensor.measureAirQuality();
     count++;
     delay(150);
     Serial.println(count);
   }
-  
+
   strip.begin();
   strip.show();
   strip.setBrightness(BRIGHTNESS);
@@ -627,7 +695,7 @@ void setup()
   timeSinceShow = millis();
 
   activity();
-  
+
   Serial.println("Start");
 }
 int i = 2000;
@@ -636,10 +704,11 @@ int ringUpdate = 0;
 void loop()
 {
   Serial.println("LOOP");
-  if(ringUpdate >= 20){
+  if (ringUpdate >= 5)
+  {
     ringUpdate = 0;
     updateLEDring();
-    Serial.println("Update led ring");
+    //Serial.println("Update led ring");
   }
   ringUpdate++;
   server.handleClient();
@@ -650,9 +719,11 @@ void loop()
   {
     rotaryEncoder.enable();
   }
-  
-  if(enableLogging){
-    if(lastLog + logIntervall <= millis()){
+
+  if (enableLogging)
+  {
+    if (lastLog + logIntervall <= millis())
+    {
       executeLogAction();
       lastLog = millis();
     }
@@ -705,7 +776,7 @@ void loop()
         display.print(" ");
         display.print(co2Sensor.TVOC);
         display.println(" ppb");
-        
+
         /*str = "TVOC: " + String(co2Sensor.TVOC);
         str += " ppb";
         display.println(str);*/
@@ -749,10 +820,23 @@ void loop()
         display.setCursor(16, 48);
         display.setTextColor(WHITE);
         display.println("Einstellungen\nverlassen");
-        display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
+        display.drawXBitmap(48, 10, doorIcon_bits, doorIcon_height, doorIcon_width, WHITE);
         display.display();
       }
       if (menuPage == "3.2")
+      {
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextSize(1);
+        display.setCursor(16, 48);
+        display.setTextColor(WHITE);
+        display.println("Start / Stop logging");
+        display.println("State: " + enableLogging);
+        display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
+        display.display();
+        isPagePressable = true;
+      }
+      if (menuPage == "3.3")
       {
         display.clearDisplay();
         display.invertDisplay(true);
@@ -764,7 +848,7 @@ void loop()
         display.display();
         isPagePressable = false;
       }
-      if (menuPage == "3.3")
+      if (menuPage == "3.4")
       {
         display.clearDisplay();
         display.invertDisplay(false);
@@ -776,7 +860,7 @@ void loop()
         display.display();
         isPagePressable = true;
       }
-      if (menuPage == "3.4")
+      if (menuPage == "3.5")
       {
         display.clearDisplay();
         display.invertDisplay(false);
