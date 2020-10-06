@@ -62,9 +62,13 @@ bool isPagePressable = false;
 int subMenu = 0;
 bool testCriticalCO2lvl = false;
 
+
+
+// Logging vars
 bool enableLogging = false;
 int lastLog = millis();
 int logIntervall = 30000;
+int subIntervall = -1;
 
 String infoText = String(VERSION) + " " + String(__DATE__) + " " + String(__TIME__);
 int infoIcon = -1;
@@ -573,7 +577,8 @@ void handle_NotFound()
 }
 
 void updateLogMath(){
-  1+1;
+  subIntervall = logIntervall / 5;
+  Serial.println("Accutllay measure every " + str(subIntervall) + " seconds");
 }
 
 String SendHTML()
@@ -600,7 +605,7 @@ String SendHTML()
   ptr += "Luftfeuchte: " + String(bmp.readHumidity()) + "%<br>\n";
   ptr += "Luftdruck: " + String(bmp.readPressure()) + "Pa<br>\n";  //co2Sensor.CO2
   ptr += "CO2 Gehalt: " + String(co2Sensor.CO2) + "ppm<br>\n";
-  ptr += "VOCT: " + String(co2Sensor.VOCT) + "ppb<br>\n";
+  ptr += "TVOC: " + String(co2Sensor.TVOC) + "ppb<br>\n";
   ptr += "</body></html>";
   return ptr;
 }
