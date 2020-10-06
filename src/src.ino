@@ -36,7 +36,7 @@
 #define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN -1
 
-#define VERSION "V1.2.8 "
+#define VERSION "V1.3.0 "
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
@@ -461,6 +461,7 @@ boolean handleWindows()
 void executeLogAction()
 {
   File fileToAppend = SPIFFS.open("/log.txt", FILE_APPEND);
+  
   if (!fileToAppend)
   {
     Serial.println("There was an error opening the file for appending");
@@ -505,6 +506,7 @@ void updateLogMath(){
 
 String SendHTML()
 {
+  co2Sensor.measureAirQuality();
   String ptr = "<!DOCTYPE html> <html>\n";
   ptr += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
   ptr += "<title>IoT CO2 Sensor</title>\n";
@@ -524,7 +526,9 @@ String SendHTML()
   ptr += "Update time: " + getTimeAndStuff() + "<br>\n";
   ptr += "Temperatur: " + String(bmp.readTemperature()) + "&deg;C<br>\n";
   ptr += "Luftfeuchte: " + String(bmp.readHumidity()) + "%<br>\n";
-  ptr += "Luftdruck: " + String(bmp.readPressure()) + "Pa<br>\n";
+  ptr += "Luftdruck: " + String(bmp.readPressure()) + "Pa<br>\n";  //co2Sensor.CO2
+  ptr += "CO2 Gehalt: " + String(co2Sensor.CO2) + "ppm<br>\n";
+  ptr += "VOCT: " + String(co2Sensor.VOCT) + "ppb<br>\n";
   ptr += "</body></html>";
   return ptr;
 }
