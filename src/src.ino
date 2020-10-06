@@ -21,10 +21,10 @@
 #include <Adafruit_SH1106.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+#include <Adafruit_NeoPixel.h>
 #include <WebServer.h>
 #include "RTClib.h"
 #include "AiEsp32RotaryEncoder.h"
-#include <Adafruit_NeoPixel.h>
 #include "SparkFun_SGP30_Arduino_Library.h"
 #include "icons.c"
 
@@ -44,7 +44,7 @@
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 16
 // NeoPixel brightness, 0 (min) to 255 (max)
-#define BRIGHTNESS 60
+int BRIGHTNESS = 60;
 
 #define DISPLAY_TIMOUT 8000
 
@@ -61,7 +61,7 @@ bool testCriticalCO2lvl = false;
 
 bool enableLogging = false;
 int lastLog = millis();
-int logIntervall = 20000;
+int logIntervall = 30000;
 
 String infoText = String(VERSION) + " " + String(__DATE__) + " " + String(__TIME__);
 int infoIcon = -1;
@@ -72,7 +72,7 @@ long timeSinceLastAction = 0;
 bool doneInactivityHandler = false;
 bool doneActivityHandler = false;
 int test_limits = 2;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+char daysOfTheWeek[7][12] = {"Sonntag", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN);
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
@@ -222,10 +222,6 @@ String getTimeOnly()
 
 void rotary_onButtonClick()
 {
-  //rotaryEncoder.reset();
-  //rotaryEncoder.disable();
-  //rotaryEncoder.setBoundaries(-test_limits, test_limits, false);
-  //test_limits *= 2;
   if (isPagePressable)
   {
 
@@ -254,7 +250,7 @@ void handleActivity()
     display.dim(false);
     doneInactivityHandler = true;
     doneActivityHandler = false;
-    Serial.println("!!!! Active");
+    Serial.println("Device active again");
   }
 
   if (timeSinceLastAction + DISPLAY_TIMOUT <= millis() && doneActivityHandler == false)
@@ -262,7 +258,7 @@ void handleActivity()
     display.dim(true);
     doneInactivityHandler = false;
     doneActivityHandler = true;
-    Serial.println("!!!! Inactive");
+    Serial.println("Device gone inactive");
   }
 }
 
@@ -409,7 +405,7 @@ void updateLEDring(){
       colorWipe(strip.Color(255, 255, 0, 0), 50);
     }
     if(mesValue >= 2001 and mesValue <= 5000){
-      colorWipe(strip.Color(255, 165, 0, 0), 50);
+      colorWipe(strip.Color(255, 150, 0, 0), 50);
     }
     if(mesValue >= 5000 and mesValue <= 8000){
       colorWipe(strip.Color(255, 0, 0, 0), 50);
@@ -501,6 +497,10 @@ void handle_NotFound()
   }
   //String errorString = "<!DOCTYPE html><html lang='en'><head>    <meta charset='utf-8'>    <title>404</title>    <meta name='viewport' content='width=device-width, initial-scale=1'>	<!--<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css'>-->    <style>        * {            line-height: 1.2;            margin: 0;        }        html {            color: #888;            display: table;            font-family: sans-serif;            height: 100%;            text-align: center;            width: 100%;        }        body {            display: table-cell;            vertical-align: middle;            margin: 2em auto;        }        h1 {            color: #555;            font-size: 2em;            font-weight: 400;        }				h0 {			color: #555;			font-size: 5em;				}        p {            margin: 0 auto;            width: 280px;        }        @media only screen and (max-width: 280px) {            body, p {                width: 95%;            }            h1 {                font-size: 1.5em;                margin: 0 0 0.3em;            }        }    </style></head><body>	<!--<h0><i class='fa fa-times'></i></h0>-->    <h1>404</h1>    <p>Die angeforderte Datei konnte nicht gefunden werden.</p></body></html><!-- IE needs 512+ bytes: https://blogs.msdn.microsoft.com/ieinternals/2010/08/18/friendly-http-error-pages/ -->";
   server.send(404, "text/html", errorString);
+}
+
+void updateLogMath(){
+  1+1;
 }
 
 String SendHTML()
