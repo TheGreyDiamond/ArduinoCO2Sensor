@@ -21,10 +21,10 @@
 #include <Adafruit_SH1106.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+#include <Adafruit_NeoPixel.h>
 #include <WebServer.h>
 #include "RTClib.h"
 #include "AiEsp32RotaryEncoder.h"
-#include <Adafruit_NeoPixel.h>
 #include "SparkFun_SGP30_Arduino_Library.h"
 #include "icons.c"
 
@@ -36,7 +36,7 @@
 #define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN -1
 
-#define VERSION "V1.2.8 "
+#define VERSION "V1.3.0 "
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
@@ -44,7 +44,7 @@
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 16
 // NeoPixel brightness, 0 (min) to 255 (max)
-#define BRIGHTNESS 60
+int BRIGHTNESS = 60;
 
 #define DISPLAY_TIMOUT 8000
 
@@ -64,7 +64,7 @@ bool testCriticalCO2lvl = false;
 
 bool enableLogging = false;
 int lastLog = millis();
-int logIntervall = 20000;
+int logIntervall = 30000;
 
 String infoText = String(VERSION) + " " + String(__DATE__) + " " + String(__TIME__);
 int infoIcon = -1;
@@ -75,7 +75,7 @@ long timeSinceLastAction = 0;
 bool doneInactivityHandler = false;
 bool doneActivityHandler = false;
 int test_limits = 2;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+char daysOfTheWeek[7][12] = {"Sonntag", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN);
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
@@ -225,10 +225,6 @@ String getTimeOnly()
 
 void rotary_onButtonClick()
 {
-  //rotaryEncoder.reset();
-  //rotaryEncoder.disable();
-  //rotaryEncoder.setBoundaries(-test_limits, test_limits, false);
-  //test_limits *= 2;
   if (isPagePressable)
   {
 
@@ -275,7 +271,7 @@ void handleActivity()
     display.dim(false);
     doneInactivityHandler = true;
     doneActivityHandler = false;
-    Serial.println("!!!! Active");
+    Serial.println("Device active again");
   }
 
   if (timeSinceLastAction + DISPLAY_TIMOUT <= millis() && doneActivityHandler == false)
@@ -283,7 +279,7 @@ void handleActivity()
     display.dim(true);
     doneInactivityHandler = false;
     doneActivityHandler = true;
-    Serial.println("!!!! Inactive");
+    Serial.println("Device gone inactive");
   }
 }
 
@@ -536,6 +532,7 @@ void executeLogAction()
 {
   Serial.println("Tried to start log");
   File fileToAppend = SPIFFS.open("/log.txt", FILE_APPEND);
+  
   if (!fileToAppend)
   {
     Serial.println("There was an error opening the file for appending");
@@ -575,8 +572,13 @@ void handle_NotFound()
   server.send(404, "text/html", errorString);
 }
 
+void updateLogMath(){
+  1+1;
+}
+
 String SendHTML()
 {
+  co2Sensor.measureAirQuality();
   String ptr = "<!DOCTYPE html> <html>\n";
   ptr += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
   ptr += "<title>IoT CO2 Sensor</title>\n";
@@ -596,7 +598,9 @@ String SendHTML()
   ptr += "Update time: " + getTimeAndStuff() + "<br>\n";
   ptr += "Temperatur: " + String(bmp.readTemperature()) + "&deg;C<br>\n";
   ptr += "Luftfeuchte: " + String(bmp.readHumidity()) + "%<br>\n";
-  ptr += "Luftdruck: " + String(bmp.readPressure()) + "Pa<br>\n";
+  ptr += "Luftdruck: " + String(bmp.readPressure()) + "Pa<br>\n";  //co2Sensor.CO2
+  ptr += "CO2 Gehalt: " + String(co2Sensor.CO2) + "ppm<br>\n";
+  ptr += "VOCT: " + String(co2Sensor.VOCT) + "ppb<br>\n";
   ptr += "</body></html>";
   return ptr;
 }
