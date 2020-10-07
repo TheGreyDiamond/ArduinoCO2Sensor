@@ -70,6 +70,14 @@ int lastLog = millis();
 int logIntervall = 30000;
 int subIntervall = -1;
 
+float allValsTemp = 0;
+float allValsHum = 0;
+float allValspres = 0;
+float allValsCO2 = 0;
+float allValsTVOC = 0;
+
+int logCount = 0;
+
 String infoText = String(VERSION) + " " + String(__DATE__) + " " + String(__TIME__);
 int infoIcon = -1;
 
@@ -131,6 +139,31 @@ String getTimeInLogFormat()
     out += now.second();
   }
   return out;
+}
+
+
+void readFile(const char * path){
+    Serial.printf("Reading file: %s\r\n", path);
+
+    File file = SPIFFS.open(path);
+    if(!file || file.isDirectory()){
+        Serial.println("- failed to open file for reading");
+        return;
+    }
+
+    Serial.println("- read from file:");
+    while(file.available()){
+        Serial.write(file.read());
+    }
+}
+
+void deleteFile(const char * path){
+    Serial.printf("Deleting file: %s\r\n", path);
+    if(SPIFFS.remove(path)){
+        Serial.println("- file deleted");
+    } else {
+        Serial.println("- delete failed");
+    }
 }
 
 String getTimeAndStuff()
@@ -235,7 +268,7 @@ void rotary_onButtonClick()
     if (menuPage == "3.0") // Time to open settings
     {
       menuPage = "3.1";
-      menuSubPageMax = 5;
+      menuSubPageMax = 7;
     }
     else if (menuPage == "3.1")
     {
@@ -264,6 +297,16 @@ void rotary_onButtonClick()
       Serial.println(testCriticalCO2lvl);
       testCriticalCO2lvl = !testCriticalCO2lvl;
       Serial.println(testCriticalCO2lvl);
+    }
+    else if (menuPage == "3.6")
+    {
+      Serial.println("-------[DATA LOG DUMP]-------");
+      readFile("/log.txt");
+    }
+    else if (menuPage == "3.7")
+    {
+      Serial.println("-------[DELETING LOG]-------");
+      deleteFile("/log.txt");
     }
   }
 }
@@ -534,28 +577,50 @@ boolean handleWindows()
 
 void executeLogAction()
 {
-  Serial.println("Tried to start log");
-  File fileToAppend = SPIFFS.open("/log.txt", FILE_APPEND);
+  updateLogMath();
+  if(lastLog + subIntervall <= millis()){
+    Serial.println("SUB LOG");
+    lastLog = millis();
+    allValsTemp += bmp.readTemperature();
+    allValsHum += bmp.readHumidity();
+    allValspres += bmp.readPressure();
+    allValsCO2 += co2Sensor.CO2;
+    allValsTVOC += co2Sensor.TVOC;
+    logCount++;
+    Serial.println("LOG COUNT: " + String(logCount));
+  }
+  if(logCount >= 5){
+    
+    allValsTemp = allValsTemp / logCount;
+    allValsHum = allValsHum / logCount;
+    allValspres = allValspres / logCount;
+    allValsCO2 = allValsCO2 / logCount;
+    allValsTVOC = allValsTVOC / logCount;
+    logCount = 0;
+    Serial.println("Tried to start log");
+    File fileToAppend = SPIFFS.open("/log.txt", FILE_APPEND);
+    
+    if (!fileToAppend)
+    {
+      Serial.println("There was an error opening the file for appending");
+      makeInfoWindow("Unable to open log file", 1);
+      return;
+    }
+    String logLine = getTimeInLogFormat();
+    co2Sensor.measureAirQuality();
+    logLine += ";";
+    logLine += String(allValsTemp) + ";" + String(allValsHum) + ";" + String(allValspres) + ";" + String(allValsCO2) + ";" + String(allValsTVOC) + "\n";
+    if (fileToAppend.println(logLine))
+    {
+      Serial.println("File content was appended");
+    }
+    else
+    {
+      Serial.println("File append failed");
+      makeInfoWindow("Log saveing failed", 1);
+    }
+  }
   
-  if (!fileToAppend)
-  {
-    Serial.println("There was an error opening the file for appending");
-    makeInfoWindow("Unable to open log file", 1);
-    return;
-  }
-  String logLine = getTimeInLogFormat();
-  co2Sensor.measureAirQuality();
-  logLine += ";";
-  logLine += String(bmp.readTemperature()) + ";" + String(bmp.readHumidity()) + ";" + String(bmp.readPressure()) + ";" + String(co2Sensor.CO2) + ";" + String(co2Sensor.TVOC) + "\n";
-  if (fileToAppend.println("APPENDED LINE"))
-  {
-    Serial.println("File content was appended");
-  }
-  else
-  {
-    Serial.println("File append failed");
-    makeInfoWindow("Log saveing failed", 1);
-  }
 }
 
 void handle_NotFound()
@@ -578,7 +643,7 @@ void handle_NotFound()
 
 void updateLogMath(){
   subIntervall = logIntervall / 5;
-  Serial.println("Accutllay measure every " + str(subIntervall) + " seconds");
+  //Serial.println("Accutllay measure every " + String(subIntervall) + " seconds");
 }
 
 String SendHTML()
@@ -712,7 +777,7 @@ int ringUpdate = 0;
 
 void loop()
 {
-  Serial.println("LOOP");
+  //Serial.println("LOOP");
   if (ringUpdate >= 5)
   {
     ringUpdate = 0;
@@ -731,11 +796,7 @@ void loop()
 
   if (enableLogging)
   {
-    if (lastLog + logIntervall <= millis())
-    {
       executeLogAction();
-      lastLog = millis();
-    }
   }
 
   if (i >= 2000)
@@ -878,6 +939,30 @@ void loop()
         display.setTextColor(WHITE);
         display.println("Test critical light");
         display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
+        display.display();
+        isPagePressable = true;
+      }
+      if (menuPage == "3.6")
+      {
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextSize(1);
+        display.setCursor(16, 48);
+        display.setTextColor(WHITE);
+        display.println("Output whole log to console");
+        display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
+        display.display();
+        isPagePressable = true;
+      }
+      if (menuPage == "3.7")
+      {
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextSize(1);
+        display.setCursor(16, 48);
+        display.setTextColor(WHITE);
+        display.println("Delete log");
+        display.drawXBitmap(48, 10, warningSign_bits, warningSign_height, warningSign_width, WHITE);
         display.display();
         isPagePressable = true;
       }
