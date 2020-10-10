@@ -28,6 +28,7 @@
 #include "SparkFun_SGP30_Arduino_Library.h"
 #include "icons.c"
 #include <CircularBuffer.h>
+#include <math.h>
 
 #define SDA 21
 #define SCL 22
@@ -55,7 +56,7 @@ bool updateRing = true;
 int lastAlarmLvl = 0;
 
 String menuPage = "0.0";
-int menuPageMax = 3;
+int menuPageMax = 4;
 int menuPageMin = 0;
 int menuSubPageMin = 1;
 int menuSubPageMax = 3;
@@ -525,6 +526,24 @@ void rotary_loop()
     }
 */
 
+void plotGraph(int whatToPlot){
+
+  float maximum = 2000;
+  float screenResY = 60;
+  float scaleY = screenResY / maximum;
+  int dataPointToDrawIndex = 0;
+  int drawValue = -1;
+  display.clearDisplay();
+  display.invertDisplay(false);
+  while(dataPointToDrawIndex <= 120){
+    drawValue = screenResY - (int)roundf(CO2[dataPointToDrawIndex] * scaleY);
+    display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
+    //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
+    dataPointToDrawIndex++;
+  }
+  display.display();
+}
+
 void updateLEDring()
 {
   /* 
@@ -867,9 +886,9 @@ void setup()
   timerAlarmEnable(timer);
 
   // Test fill CO2 Logger
-  for(int i = 0; i<=120; i++){
-    CO2.push(i+400);
-  }
+  /*for(int i = 0; i<=120; i++){
+    CO2.push((i*9)+400);
+  }*/
 
   Serial.println("Start");
 }
@@ -986,7 +1005,13 @@ void loop()
         display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
         display.display();
         i = 1995;
+      }else if (menuPage == "4.0")
+      { // Plot
+        isPagePressable = false;
+        plotGraph(0);
+        i = 1995;
       }
+
 
       if (menuPage == "3.1")
       {
