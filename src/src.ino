@@ -55,6 +55,8 @@ int BRIGHTNESS = 60;
 bool updateRing = true;
 int lastAlarmLvl = 0;
 
+int amountToFill = 120;
+
 String menuPage = "0.0";
 int menuPageMax = 4;
 int menuPageMin = 0;
@@ -74,7 +76,7 @@ int subMenu = 0;
 bool testCriticalCO2lvl = false;
 
 // Logging vars
-bool enableLogging = false;
+bool enableLogging = true;
 int lastLog = millis();
 int logIntervall = 30000;
 int subIntervall = -1;
@@ -699,6 +701,11 @@ void executeLogAction()
     preasure.push(allValspres);
     CO2.push(allValsCO2);
     TVOC.push(allValsTVOC);
+    amountToFill--;
+
+    /*for(int i = 0; i<=amountToFill; i++){
+      CO2.push(400);
+    }*/
 
     /* File fileToAppend = SPIFFS.open("/log.txt", FILE_APPEND);
 
@@ -885,10 +892,11 @@ void setup()
   timerAlarmWrite(timer, 1000000, true);
   timerAlarmEnable(timer);
 
-  // Test fill CO2 Logger
-  /*for(int i = 0; i<=120; i++){
-    CO2.push((i*9)+400);
-  }*/
+  // Prefill CO2 Logger
+  for(int i = 0; i<=120; i++){
+    //CO2.push((i*9)+400);
+    CO2.push(400);
+  }
 
   Serial.println("Start");
 }
