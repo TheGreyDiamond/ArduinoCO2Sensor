@@ -81,6 +81,11 @@ int logCount = 0;
 String infoText = String(VERSION) + " " + String(__DATE__) + " " + String(__TIME__);
 int infoIcon = -1;
 
+volatile int interruptCounter;
+int totalInterruptCounter;
+hw_timer_t * timer = NULL;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+
 int loopI2 = 0;
 
 long timeSinceLastAction = 0;
@@ -88,6 +93,8 @@ bool doneInactivityHandler = false;
 bool doneActivityHandler = false;
 int test_limits = 2;
 char daysOfTheWeek[7][12] = {"Sonntag", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+bool allowUpdate = false;
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN);
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
@@ -97,6 +104,8 @@ RTC_DS3231 rtc;
 SGP30 co2Sensor;
 
 WebServer server(80);
+
+
 
 String getTimeInLogFormat()
 {
@@ -157,6 +166,20 @@ void readFile(const char * path){
     }
 }
 
+void getLastHourOfData(){
+  File file = SPIFFS.open("/log.txt");
+  if(!file || file.isDirectory()){
+        Serial.println("- failed to open file for reading");
+        return;
+    }
+    DateTime now = rtc.now();
+    String outF = "";
+    while(file.available()){
+        outF += file.readString();
+    }
+    Serial.println(outF);
+}
+
 void deleteFile(const char * path){
     Serial.printf("Deleting file: %s\r\n", path);
     if(SPIFFS.remove(path)){
@@ -165,6 +188,8 @@ void deleteFile(const char * path){
         Serial.println("- delete failed");
     }
 }
+
+
 
 String getTimeAndStuff()
 {
@@ -301,7 +326,8 @@ void rotary_onButtonClick()
     else if (menuPage == "3.6")
     {
       Serial.println("-------[DATA LOG DUMP]-------");
-      readFile("/log.txt");
+      //readFile("/log.txt");
+      getLastHourOfData();
     }
     else if (menuPage == "3.7")
     {
@@ -461,7 +487,7 @@ void updateLEDring()
   * 5,000            red
   * >40,000 ppm      red blinking        aka u ded soon     updateRing
   */
-  co2Sensor.measureAirQuality();
+  // co2Sensor.measureAirQuality();
   int mesValue = co2Sensor.CO2;
   int currentAlarmLvl = 1;
   if (testCriticalCO2lvl == false)
@@ -607,9 +633,9 @@ void executeLogAction()
       return;
     }
     String logLine = getTimeInLogFormat();
-    co2Sensor.measureAirQuality();
+    //co2Sensor.measureAirQuality();
     logLine += ";";
-    logLine += String(allValsTemp) + ";" + String(allValsHum) + ";" + String(allValspres) + ";" + String(allValsCO2) + ";" + String(allValsTVOC) + "\n";
+    logLine += String(allValsTemp) + ";" + String(allValsHum) + ";" + String(allValspres) + ";" + String(allValsCO2) + ";" + String(allValsTVOC);
     if (fileToAppend.println(logLine))
     {
       Serial.println("File content was appended");
@@ -648,7 +674,7 @@ void updateLogMath(){
 
 String SendHTML()
 {
-  co2Sensor.measureAirQuality();
+  //co2Sensor.measureAirQuality();
   String ptr = "<!DOCTYPE html> <html>\n";
   ptr += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
   ptr += "<title>IoT CO2 Sensor</title>\n";
@@ -688,6 +714,14 @@ void colorWipe(uint32_t color, int wait)
     strip.show();                  //  Update strip to match
     delay(wait);                   //  Pause for a moment
   }
+}
+
+void IRAM_ATTR onTimer() {
+  portENTER_CRITICAL_ISR(&timerMux);
+  //co2Sensor.measureAirQuality();
+  allowUpdate = true;
+  portEXIT_CRITICAL_ISR(&timerMux);
+ 
 }
 
 void setup()
@@ -757,7 +791,7 @@ void setup()
   {
     co2Sensor.measureAirQuality();
     count++;
-    delay(150);
+    delay(200);
     Serial.println(count);
   }
 
@@ -770,6 +804,11 @@ void setup()
 
   activity();
 
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &onTimer, true);
+  timerAlarmWrite(timer, 1000000, true);
+  timerAlarmEnable(timer);
+
   Serial.println("Start");
 }
 int i = 2000;
@@ -777,6 +816,10 @@ int ringUpdate = 0;
 
 void loop()
 {
+  if(allowUpdate){
+    allowUpdate = false;
+    co2Sensor.measureAirQuality();
+  }
   //Serial.println("LOOP");
   if (ringUpdate >= 5)
   {
@@ -828,7 +871,7 @@ void loop()
       }
       if (menuPage == "1.0") // Just co2 + TVOC
       {
-        co2Sensor.measureAirQuality();
+        //Serial.println(" SENSOR: " + String(co2Sensor.measureAirQuality()));
         isPagePressable = false;
         display.clearDisplay();
         display.invertDisplay(false);
