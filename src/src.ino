@@ -27,6 +27,7 @@
 #include "AiEsp32RotaryEncoder.h"
 #include "SparkFun_SGP30_Arduino_Library.h"
 #include "icons.c"
+#include <CircularBuffer.h>
 
 #define SDA 21
 #define SCL 22
@@ -36,11 +37,13 @@
 #define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN -1
 
-#define VERSION "V1.3.0 "
+#define VERSION "V1.3.1 "
+
+#define SD_CS 5
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
-#define LED_PIN 19
+#define LED_PIN 14
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 16
 // NeoPixel brightness, 0 (min) to 255 (max)
@@ -58,11 +61,16 @@ int menuSubPageMin = 1;
 int menuSubPageMax = 3;
 int timeSinceShow = 0;
 
+CircularBuffer<float, 120> temperature;
+CircularBuffer<float, 120> humidity;
+CircularBuffer<float, 120> preasure;
+
+CircularBuffer<float, 120> CO2;
+CircularBuffer<float, 120> TVOC;
+
 bool isPagePressable = false;
 int subMenu = 0;
 bool testCriticalCO2lvl = false;
-
-
 
 // Logging vars
 bool enableLogging = false;
@@ -83,7 +91,7 @@ int infoIcon = -1;
 
 volatile int interruptCounter;
 int totalInterruptCounter;
-hw_timer_t * timer = NULL;
+hw_timer_t *timer = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 int loopI2 = 0;
@@ -104,8 +112,6 @@ RTC_DS3231 rtc;
 SGP30 co2Sensor;
 
 WebServer server(80);
-
-
 
 String getTimeInLogFormat()
 {
@@ -150,46 +156,88 @@ String getTimeInLogFormat()
   return out;
 }
 
+void readFile(const char *path)
+{
+  Serial.printf("Reading file: %s\r\n", path);
 
-void readFile(const char * path){
-    Serial.printf("Reading file: %s\r\n", path);
+  File file = SPIFFS.open(path);
+  if (!file || file.isDirectory())
+  {
+    Serial.println("- failed to open file for reading");
+    return;
+  }
 
-    File file = SPIFFS.open(path);
-    if(!file || file.isDirectory()){
-        Serial.println("- failed to open file for reading");
-        return;
-    }
-
-    Serial.println("- read from file:");
-    while(file.available()){
-        Serial.write(file.read());
-    }
+  Serial.println("- read from file:");
+  while (file.available())
+  {
+    Serial.write(file.read());
+  }
 }
 
-void getLastHourOfData(){
+void getLatestData()
+{
+  Serial.println("LATEST DATA");
   File file = SPIFFS.open("/log.txt");
-  if(!file || file.isDirectory()){
-        Serial.println("- failed to open file for reading");
-        return;
+  if (!file || file.isDirectory())
+  {
+    Serial.println("- failed to open file for reading");
+    return;
+  }
+
+  // Get line amount of log file
+  int lineCount = 0;
+  int linesToRead = 0;
+  while (file.available())
+  {
+    file.readStringUntil('\n');
+    lineCount++;
+  }
+  linesToRead = lineCount - 100;
+  if (linesToRead < 0)
+  {
+    linesToRead = lineCount;
+  }
+
+      String outF[105];
+  int tempI = 0;
+  bool stillRun = true;
+  Serial.println("LEN1: " + String(outF->length()));
+  while (file.available() and stillRun == true)
+  {
+    Serial.println("Loooopy");
+    outF[tempI] = String(file.readStringUntil('\n'));
+    if (tempI == 100)
+    {
+      stillRun = false;
+      Serial.println("Done");
     }
-    DateTime now = rtc.now();
-    String outF = "";
-    while(file.available()){
-        outF += file.readString();
-    }
-    Serial.println(outF);
+    tempI++;
+  }
+
+  //while(tempIa <= outF->length())
+  int tempA = 0;
+  while (tempA <= tempI)
+  {
+    Serial.println(outF[tempA]);
+    tempA++;
+  }
+
+  Serial.println("LEN: " + String(outF->length()));
+  Serial.println("TEST: " + String(tempI));
 }
 
-void deleteFile(const char * path){
-    Serial.printf("Deleting file: %s\r\n", path);
-    if(SPIFFS.remove(path)){
-        Serial.println("- file deleted");
-    } else {
-        Serial.println("- delete failed");
-    }
+void deleteFile(const char *path)
+{
+  Serial.printf("Deleting file: %s\r\n", path);
+  if (SPIFFS.remove(path))
+  {
+    Serial.println("- file deleted");
+  }
+  else
+  {
+    Serial.println("- delete failed");
+  }
 }
-
-
 
 String getTimeAndStuff()
 {
@@ -327,7 +375,7 @@ void rotary_onButtonClick()
     {
       Serial.println("-------[DATA LOG DUMP]-------");
       //readFile("/log.txt");
-      getLastHourOfData();
+      getLatestData();
     }
     else if (menuPage == "3.7")
     {
@@ -604,7 +652,8 @@ boolean handleWindows()
 void executeLogAction()
 {
   updateLogMath();
-  if(lastLog + subIntervall <= millis()){
+  if (lastLog + subIntervall <= millis())
+  {
     Serial.println("SUB LOG");
     lastLog = millis();
     allValsTemp += bmp.readTemperature();
@@ -615,8 +664,9 @@ void executeLogAction()
     logCount++;
     Serial.println("LOG COUNT: " + String(logCount));
   }
-  if(logCount >= 5){
-    
+  if (logCount >= 5)
+  {
+
     allValsTemp = allValsTemp / logCount;
     allValsHum = allValsHum / logCount;
     allValspres = allValspres / logCount;
@@ -624,8 +674,15 @@ void executeLogAction()
     allValsTVOC = allValsTVOC / logCount;
     logCount = 0;
     Serial.println("Tried to start log");
-    File fileToAppend = SPIFFS.open("/log.txt", FILE_APPEND);
     
+    temperature.push(allValsTemp);
+    humidity.push(allValsHum);
+    preasure.push(allValspres);
+    CO2.push(allValsCO2);
+    TVOC.push(allValsTVOC);
+
+    /* File fileToAppend = SPIFFS.open("/log.txt", FILE_APPEND);
+
     if (!fileToAppend)
     {
       Serial.println("There was an error opening the file for appending");
@@ -635,8 +692,8 @@ void executeLogAction()
     String logLine = getTimeInLogFormat();
     //co2Sensor.measureAirQuality();
     logLine += ";";
-    logLine += String(allValsTemp) + ";" + String(allValsHum) + ";" + String(allValspres) + ";" + String(allValsCO2) + ";" + String(allValsTVOC);
-    if (fileToAppend.println(logLine))
+    logLine += String(allValsTemp) + ";" + String(allValsHum) + ";" + String(allValspres) + ";" + String(allValsCO2) + ";" + String(allValsTVOC) + "\n";
+    if (fileToAppend.print(logLine))
     {
       Serial.println("File content was appended");
     }
@@ -644,9 +701,8 @@ void executeLogAction()
     {
       Serial.println("File append failed");
       makeInfoWindow("Log saveing failed", 1);
-    }
+    }*/
   }
-  
 }
 
 void handle_NotFound()
@@ -667,7 +723,8 @@ void handle_NotFound()
   server.send(404, "text/html", errorString);
 }
 
-void updateLogMath(){
+void updateLogMath()
+{
   subIntervall = logIntervall / 5;
   //Serial.println("Accutllay measure every " + String(subIntervall) + " seconds");
 }
@@ -694,7 +751,7 @@ String SendHTML()
   ptr += "Update time: " + getTimeAndStuff() + "<br>\n";
   ptr += "Temperatur: " + String(bmp.readTemperature()) + "&deg;C<br>\n";
   ptr += "Luftfeuchte: " + String(bmp.readHumidity()) + "%<br>\n";
-  ptr += "Luftdruck: " + String(bmp.readPressure()) + "Pa<br>\n";  //co2Sensor.CO2
+  ptr += "Luftdruck: " + String(bmp.readPressure()) + "Pa<br>\n"; //co2Sensor.CO2
   ptr += "CO2 Gehalt: " + String(co2Sensor.CO2) + "ppm<br>\n";
   ptr += "TVOC: " + String(co2Sensor.TVOC) + "ppb<br>\n";
   ptr += "</body></html>";
@@ -716,12 +773,12 @@ void colorWipe(uint32_t color, int wait)
   }
 }
 
-void IRAM_ATTR onTimer() {
+void IRAM_ATTR onTimer()
+{
   portENTER_CRITICAL_ISR(&timerMux);
   //co2Sensor.measureAirQuality();
   allowUpdate = true;
   portEXIT_CRITICAL_ISR(&timerMux);
- 
 }
 
 void setup()
@@ -809,6 +866,11 @@ void setup()
   timerAlarmWrite(timer, 1000000, true);
   timerAlarmEnable(timer);
 
+  // Test fill CO2 Logger
+  for(int i = 0; i<=120; i++){
+    CO2.push(i+400);
+  }
+
   Serial.println("Start");
 }
 int i = 2000;
@@ -816,7 +878,8 @@ int ringUpdate = 0;
 
 void loop()
 {
-  if(allowUpdate){
+  if (allowUpdate)
+  {
     allowUpdate = false;
     co2Sensor.measureAirQuality();
   }
@@ -839,7 +902,7 @@ void loop()
 
   if (enableLogging)
   {
-      executeLogAction();
+    executeLogAction();
   }
 
   if (i >= 2000)
