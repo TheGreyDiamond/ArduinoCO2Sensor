@@ -29,6 +29,7 @@
 #include "icons.c"
 #include <CircularBuffer.h>
 #include <math.h>
+#include "SD.h"
 
 #define SDA 21
 #define SCL 22
@@ -897,7 +898,17 @@ void setup()
     //CO2.push((i*9)+400);
     CO2.push(400);
   }
-
+  
+  SD.begin(SD_CS);  
+  if(!SD.begin(SD_CS)) {
+    Serial.println("Card Mount Failed");
+    return;
+  }
+  uint8_t cardType = SD.cardType();
+  if(cardType == CARD_NONE) {
+    Serial.println("No SD card attached");
+    return;
+  }
   Serial.println("Start");
 }
 int i = 2000;
