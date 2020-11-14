@@ -25,11 +25,7 @@
 #include <WebServer.h>
 #include "RTClib.h"
 
-#include "BluetoothSerial.h"
-
-//#include <BLEDevice.h>
-//#include <BLEUtils.h>
-//#include <BLEServer.h>
+#include "SimpleBLE.h"
 
 #include <ESP32Encoder.h>
 
@@ -48,8 +44,6 @@
 #define ROTARY_ENCODER_VCC_PIN -1
 
 #define VERSION "V1.3.4 "
-
-#define SD_CS 5
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
@@ -93,6 +87,8 @@ int lastLog = millis();
 int logIntervall = 30000;
 int subIntervall = -1;
 
+int graphToPlot = 0;
+
 float allValsTemp = 0;
 float allValsHum = 0;
 float allValspres = 0;
@@ -115,7 +111,7 @@ long timeSinceLastAction = 0;
 bool doneInactivityHandler = false;
 bool doneActivityHandler = false;
 int test_limits = 2;
-char daysOfTheWeek[7][12] = {"Sonntag", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+//char daysOfTheWeek[7][12] = {"Sonntag", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
 bool allowUpdate = false;
 
@@ -125,7 +121,7 @@ Adafruit_SH1106 display(SDA, SCL);
 Adafruit_BME280 bmp;
 RTC_DS3231 rtc;
 SGP30 co2Sensor;
-
+SimpleBLE ble;
 WebServer server(80);
 
 String getTimeInLogFormat()
@@ -170,25 +166,7 @@ String getTimeInLogFormat()
   }
   return out;
 }
-
-void readFile(const char *path)
-{
-  Serial.printf("Reading file: %s\r\n", path);
-
-  File file = SPIFFS.open(path);
-  if (!file || file.isDirectory())
-  {
-    Serial.println("- failed to open file for reading");
-    return;
-  }
-
-  Serial.println("- read from file:");
-  while (file.available())
-  {
-    Serial.write(file.read());
-  }
-}
-
+/*
 void getLatestData()
 {
   Serial.println("LATEST DATA");
@@ -213,7 +191,7 @@ void getLatestData()
     linesToRead = lineCount;
   }
 
-      String outF[105];
+  String outF[105];
   int tempI = 0;
   bool stillRun = true;
   Serial.println("LEN1: " + String(outF->length()));
@@ -236,9 +214,6 @@ void getLatestData()
     Serial.println(outF[tempA]);
     tempA++;
   }
-
-  Serial.println("LEN: " + String(outF->length()));
-  Serial.println("TEST: " + String(tempI));
 }
 
 void deleteFile(const char *path)
@@ -253,7 +228,7 @@ void deleteFile(const char *path)
     Serial.println("- delete failed");
   }
 }
-
+*/
 String getTimeAndStuff()
 {
   DateTime now = rtc.now();
@@ -356,7 +331,7 @@ void rotary_onButtonClick()
     if (menuPage == "3.0") // Time to open settings
     {
       menuPage = "3.1";
-      menuSubPageMax = 8;
+      menuSubPageMax = 6;
     }
     else if (menuPage == "3.1")
     {
@@ -383,9 +358,12 @@ void rotary_onButtonClick()
     {
       Serial.println("!------------!");
       Serial.println(testCriticalCO2lvl);
-      if(testCriticalCO2lvl == true){
+      if (testCriticalCO2lvl == true)
+      {
         testCriticalCO2lvl = false;
-      }else{
+      }
+      else
+      {
         testCriticalCO2lvl = true;
       }
       //testCriticalCO2lvl = !testCriticalCO2lvl;
@@ -393,23 +371,33 @@ void rotary_onButtonClick()
     }
     else if (menuPage == "3.6")
     {
-      if(partyMode == true){
+      if (partyMode == true)
+      {
         partyMode = false;
-      }else{
+      }
+      else
+      {
         partyMode = true;
       }
       //testCriticalCO2lvl = !testCriticalCO2lvl;
     }
-    else if (menuPage == "3.7")
+    /*else if (menuPage == "3.7")
     {
       Serial.println("-------[DATA LOG DUMP]-------");
-      //readFile("/log.txt");
-      getLatestData();
+      //getLatestData();
     }
     else if (menuPage == "3.8")
     {
       Serial.println("-------[DELETING LOG]-------");
-      deleteFile("/log.txt");
+      //deleteFile("/log.txt");
+    }*/
+    else if (menuPage == "4.0")
+    {
+      graphToPlot++;
+      if (graphToPlot > 4)
+      {
+        graphToPlot = 0;
+      }
     }
   }
 }
@@ -471,7 +459,7 @@ void rotary_loop()
   //int16_t encoderDelta = rotaryEncoder.encoderChanged();
   int16_t encoderDelta = encoder.getCount();
   encoder.clearCount();
-  encoderDelta = encoderDelta/1;
+  encoderDelta = encoderDelta / 1;
   //optionally we can ignore whenever there is no change
   if (encoderDelta == 0)
     return;
@@ -525,37 +513,124 @@ void rotary_loop()
   }
 }
 
-void plotGraph(int whatToPlot){
-
-  float maximum = 2000;
-  float screenResY = 60;
-  float scaleY = screenResY / maximum;
-  int dataPointToDrawIndex = 0;
-  int drawValue = -1;
-  display.clearDisplay();
-  display.invertDisplay(false);
-  while(dataPointToDrawIndex <= 120){
-    drawValue = screenResY - (int)roundf(CO2[dataPointToDrawIndex] * scaleY);
-    display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
-    //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
-    dataPointToDrawIndex++;
+void plotGraph(int whatToPlot)
+{
+  if (whatToPlot == 0)
+  {
+    float maximum = 2000;
+    float screenResY = 60;
+    float scaleY = screenResY / maximum;
+    int dataPointToDrawIndex = 0;
+    int drawValue = -1;
+    display.clearDisplay();
+    display.invertDisplay(false);
+    while (dataPointToDrawIndex <= 120)
+    {
+      drawValue = screenResY - (int)roundf(CO2[dataPointToDrawIndex] * scaleY);
+      display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
+      //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
+      dataPointToDrawIndex++;
+    }
+    display.setCursor(0, 0);
+    display.println("CO2");
   }
+  if (whatToPlot == 1)
+  {
+    float maximum = 1000;
+    float screenResY = 60;
+    float scaleY = screenResY / maximum;
+    int dataPointToDrawIndex = 0;
+    int drawValue = -1;
+    display.clearDisplay();
+    display.invertDisplay(false);
+    while (dataPointToDrawIndex <= 120)
+    {
+      drawValue = screenResY - (int)roundf(TVOC[dataPointToDrawIndex] * scaleY);
+      display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
+      //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
+      dataPointToDrawIndex++;
+    }
+    display.setCursor(0, 0);
+    display.println("TVOC");
+  }
+  if (whatToPlot == 2)
+  {
+    float maximum = 40;
+    float screenResY = 60;
+    float scaleY = screenResY / maximum;
+    int dataPointToDrawIndex = 0;
+    int drawValue = -1;
+    display.clearDisplay();
+    display.invertDisplay(false);
+    while (dataPointToDrawIndex <= 120)
+    {
+      drawValue = screenResY - (int)roundf(TVOC[dataPointToDrawIndex] * scaleY);
+      display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
+      //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
+      dataPointToDrawIndex++;
+    }
+    display.setCursor(0, 0);
+    display.println("Temperature");
+  }
+  if (whatToPlot == 3)
+  {
+    float maximum = 100;
+    float screenResY = 60;
+    float scaleY = screenResY / maximum;
+    int dataPointToDrawIndex = 0;
+    int drawValue = -1;
+    display.clearDisplay();
+    display.invertDisplay(false);
+    while (dataPointToDrawIndex <= 120)
+    {
+      drawValue = screenResY - (int)roundf(TVOC[dataPointToDrawIndex] * scaleY);
+      display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
+      //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
+      dataPointToDrawIndex++;
+    }
+    display.setCursor(0, 0);
+    display.println("Humidity");
+  }
+  if (whatToPlot == 4)
+  {
+    float maximum = 100000;
+    float screenResY = 60;
+    float scaleY = screenResY / maximum;
+    int dataPointToDrawIndex = 0;
+    int drawValue = -1;
+    display.clearDisplay();
+    display.invertDisplay(false);
+    while (dataPointToDrawIndex <= 120)
+    {
+      drawValue = screenResY - (int)roundf(TVOC[dataPointToDrawIndex] * scaleY);
+      display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
+      //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
+      dataPointToDrawIndex++;
+    }
+    display.setCursor(0, 0);
+    display.println("Pressure");
+  }
+
   display.display();
 }
 
-void theaterChaseRainbow(int wait) {
-  int firstPixelHue = 0;     // First pixel starts at red (hue 0)
-  for(int a=0; a<30; a++) {  // Repeat 30 times...
-    for(int b=0; b<3; b++) { //  'b' counts from 0 to 2...
-      strip.clear();         //   Set all pixels in RAM to 0 (off)
+void theaterChaseRainbow(int wait)
+{
+  int firstPixelHue = 0; // First pixel starts at red (hue 0)
+  for (int a = 0; a < 30; a++)
+  { // Repeat 30 times...
+    for (int b = 0; b < 3; b++)
+    {                //  'b' counts from 0 to 2...
+      strip.clear(); //   Set all pixels in RAM to 0 (off)
       // 'c' counts up from 'b' to end of strip in increments of 3...
-      for(int c=b; c<strip.numPixels(); c += 3) {
+      for (int c = b; c < strip.numPixels(); c += 3)
+      {
         // hue of pixel 'c' is offset by an amount to make one full
         // revolution of the color wheel (range 65536) along the length
         // of the strip (strip.numPixels() steps):
-        int      hue   = firstPixelHue + c * 65536L / strip.numPixels();
+        int hue = firstPixelHue + c * 65536L / strip.numPixels();
         uint32_t color = strip.gamma32(strip.ColorHSV(hue)); // hue -> RGB
-        strip.setPixelColor(c, color); // Set pixel 'c' to value 'color'
+        strip.setPixelColor(c, color);                       // Set pixel 'c' to value 'color'
       }
       strip.show();                // Update strip with new contents
       delay(wait);                 // Pause for a moment
@@ -652,7 +727,7 @@ void updateLEDring()
       colorWipe(strip.Color(255, 0, 0, 0), 50);
     }
   }
-  if(partyMode)
+  if (partyMode)
   {
     theaterChaseRainbow(40);
   }
@@ -718,7 +793,7 @@ void executeLogAction()
     allValsTVOC = allValsTVOC / logCount;
     logCount = 0;
     Serial.println("Tried to start log");
-    
+
     temperature.push(allValsTemp);
     humidity.push(allValsHum);
     preasure.push(allValspres);
@@ -801,13 +876,13 @@ void handleTimeSet()
   String date = String(server.arg(server.argName(0)));
   String time = String(server.arg(server.argName(1)));
   Serial.println(date);
-  Serial.println(time);  
+  Serial.println(time);
   int date_d = getValue(date, '-', 0).toInt();
   int date_m = getValue(date, '-', 1).toInt();
   int date_y = getValue(date, '-', 2).toInt();
   int time_m = getValue(time, ':', 0).toInt();
   int time_h = getValue(time, ':', 1).toInt();
-  rtc.adjust(DateTime(date_d ,date_m, date_y, time_m, time_h));
+  rtc.adjust(DateTime(date_d, date_m, date_y, time_m, time_h));
   server.send(200, "text/html", ptr);
 }
 
@@ -837,13 +912,13 @@ String SendHTML()
   ptr += "CO2 Gehalt: " + String(co2Sensor.CO2) + "ppm<br>\n";
   ptr += "TVOC: " + String(co2Sensor.TVOC) + "ppb<br>\n";
   ptr += "<h2>Uhr setzen</h2>\n";
-  ptr +="<form action='/setClock'>";
-  ptr +="  <label for='birthday'>Datum:</label>";
-  ptr +="  <input type='date' id='datum' name='datum'>";
-  ptr +="  <label for='appt'>Uhrzeit:</label>";
-  ptr +="  <input type='time' id='uhrzeit' name='uhrzeit'>";
-  ptr +="  <input type='submit' value='Speichern'>";
-  ptr +="</form>";
+  ptr += "<form action='/setClock'>";
+  ptr += "  <label for='birthday'>Datum:</label>";
+  ptr += "  <input type='date' id='datum' name='datum'>";
+  ptr += "  <label for='appt'>Uhrzeit:</label>";
+  ptr += "  <input type='time' id='uhrzeit' name='uhrzeit'>";
+  ptr += "  <input type='submit' value='Speichern'>";
+  ptr += "</form>";
   ptr += "</body></html>";
   return ptr;
 }
@@ -920,7 +995,9 @@ void setup()
     //rtc.adjust(DateTime(2020, 10, 25, 15, 54, 30));
   }
 
-  ESP32Encoder::useInternalWeakPullResistors=UP;
+  ble.begin("IoT CO2 Sensor");
+
+  ESP32Encoder::useInternalWeakPullResistors = UP;
   encoder.attachHalfQuad(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN);
   encoder.setCount(20);
   encoder.clearCount();
@@ -962,14 +1039,13 @@ void setup()
   timerAlarmWrite(timer, 1000000, true);
   timerAlarmEnable(timer);
 
-
-
   // Prefill CO2 Logger
-  for(int i = 0; i<=120; i++){
+  for (int i = 0; i <= 120; i++)
+  {
     //CO2.push((i*9)+400);
     CO2.push(400);
   }
-  
+
   /*SD.begin(SD_CS);  
   if(!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
@@ -983,7 +1059,8 @@ void setup()
   Serial.println("Start");
 }
 
-void IRAM_ATTR isr() {
+void IRAM_ATTR isr()
+{
   buttonPressUnhandeld = true;
 }
 
@@ -1096,13 +1173,13 @@ void loop()
         display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
         display.display();
         i = 1995;
-      }else if (menuPage == "4.0")
+      }
+      else if (menuPage == "4.0")
       { // Plot
-        isPagePressable = false;
-        plotGraph(0);
+        isPagePressable = true;
+        plotGraph(graphToPlot);
         i = 1995;
       }
-
 
       if (menuPage == "3.1")
       {
@@ -1176,7 +1253,7 @@ void loop()
         display.display();
         isPagePressable = true;
       }
-      if (menuPage == "3.7")
+      /*if (menuPage == "3.7")
       {
         display.clearDisplay();
         display.invertDisplay(false);
@@ -1199,7 +1276,7 @@ void loop()
         display.drawXBitmap(48, 10, warningSign_bits, warningSign_height, warningSign_width, WHITE);
         display.display();
         isPagePressable = true;
-      }
+      }*/
     }
   }
   i++;
