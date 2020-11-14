@@ -43,7 +43,7 @@
 #define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN -1
 
-#define VERSION "V1.3.1 "
+#define VERSION "V1.3.4 "
 
 #define SD_CS 5
 
@@ -458,7 +458,7 @@ void rotary_loop()
   //int16_t encoderDelta = rotaryEncoder.encoderChanged();
   int16_t encoderDelta = encoder.getCount();
   encoder.clearCount();
-  encoderDelta = encoderDelta/2;
+  encoderDelta = encoderDelta/1;
   //optionally we can ignore whenever there is no change
   if (encoderDelta == 0)
     return;
@@ -771,6 +771,39 @@ void updateLogMath()
   //Serial.println("Accutllay measure every " + String(subIntervall) + " seconds");
 }
 
+void handleTimeSet()
+{
+  String ptr = "<!DOCTYPE html> <html>\n";
+  ptr += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
+  ptr += "<title>IoT CO2 Sensor</title>\n";
+  ptr += "<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n";
+  ptr += "body{margin-top: 50px;} h1 {color: #444444;margin: 50px auto 30px;} h3 {color: #444444;margin-bottom: 50px;}\n";
+  ptr += ".button {display: block;width: 80px;background-color: #3498db;border: none;color: white;padding: 13px 30px;text-decoration: none;font-size: 25px;margin: 0px auto 35px;cursor: pointer;border-radius: 4px;}\n";
+  ptr += ".button-on {background-color: #3498db;}\n";
+  ptr += ".button-on:active {background-color: #2980b9;}\n";
+  ptr += ".button-off {background-color: #34495e;}\n";
+  ptr += ".button-off:active {background-color: #2c3e50;}\n";
+  ptr += "p {font-size: 14px;color: #888;margin-bottom: 10px;}\n";
+  ptr += "</style>\n";
+  ptr += "</head>\n";
+  ptr += "<body>\n";
+  ptr += "<h1>Fertig!</h1>\n";
+  ptr += "<a href='/'>Zur&uuml;ck!</a>\n";
+  ptr += "</body></html>";
+  Serial.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+  String date = String(server.arg(server.argName(0)));
+  String time = String(server.arg(server.argName(1)));
+  Serial.println(date);
+  Serial.println(time);  
+  int date_d = getValue(date, '-', 0).toInt();
+  int date_m = getValue(date, '-', 1).toInt();
+  int date_y = getValue(date, '-', 2).toInt();
+  int time_m = getValue(time, ':', 0).toInt();
+  int time_h = getValue(time, ':', 1).toInt();
+  rtc.adjust(DateTime(date_d ,date_m, date_y, time_m, time_h));
+  server.send(200, "text/html", ptr);
+}
+
 String SendHTML()
 {
   //co2Sensor.measureAirQuality();
@@ -796,6 +829,14 @@ String SendHTML()
   ptr += "Luftdruck: " + String(bmp.readPressure()) + "Pa<br>\n"; //co2Sensor.CO2
   ptr += "CO2 Gehalt: " + String(co2Sensor.CO2) + "ppm<br>\n";
   ptr += "TVOC: " + String(co2Sensor.TVOC) + "ppb<br>\n";
+  ptr += "<h2>Uhr setzen</h2>\n";
+  ptr +="<form action='/setClock'>";
+  ptr +="  <label for='birthday'>Datum:</label>";
+  ptr +="  <input type='date' id='datum' name='datum'>";
+  ptr +="  <label for='appt'>Uhrzeit:</label>";
+  ptr +="  <input type='time' id='uhrzeit' name='uhrzeit'>";
+  ptr +="  <input type='submit' value='Speichern'>";
+  ptr +="</form>";
   ptr += "</body></html>";
   return ptr;
 }
@@ -858,6 +899,7 @@ void setup()
   WiFi.mode(WIFI_OFF);
   WiFi.softAP("IoT CO2 Sensor");
   server.on("/", handleRoot);
+  server.on("/setClock", handleTimeSet);
   server.onNotFound(handle_NotFound);
   server.begin();
   if (!rtc.begin())
@@ -972,7 +1014,7 @@ void loop()
 
   if (i >= 2000)
   {
-    Serial.println(menuPage);
+    //Serial.println(menuPage);
     if (handleWindows())
     {
       if (menuPage == "0.0") // Just temperature

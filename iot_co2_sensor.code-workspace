@@ -5,6 +5,9 @@
 		}
 	],
 	"settings": {
-		"liveServer.settings.multiRootWorkspaceName": "200929-211543-nodemcu-32s"
+		"liveServer.settings.multiRootWorkspaceName": "200929-211543-nodemcu-32s",
+		"files.associations": {
+			"sstream": "cpp"
+		}
 	}
 }
