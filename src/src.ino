@@ -24,12 +24,16 @@
 #include <Adafruit_NeoPixel.h>
 #include <WebServer.h>
 #include "RTClib.h"
+
 #include "AiEsp32RotaryEncoder.h"
+
+#include <ESP32Encoder.h>
+
 #include "SparkFun_SGP30_Arduino_Library.h"
 #include "icons.c"
 #include <CircularBuffer.h>
 #include <math.h>
-#include "SD.h"
+//#include "SD.h"
 
 #define SDA 21
 #define SCL 22
@@ -49,7 +53,7 @@
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 16
 // NeoPixel brightness, 0 (min) to 255 (max)
-int BRIGHTNESS = 60;
+int BRIGHTNESS = 40;
 
 #define DISPLAY_TIMOUT 8000
 
@@ -75,6 +79,8 @@ CircularBuffer<float, 120> TVOC;
 bool isPagePressable = false;
 int subMenu = 0;
 bool testCriticalCO2lvl = false;
+
+bool buttonPressUnhandeld = false;
 
 // Logging vars
 bool enableLogging = true;
@@ -109,6 +115,7 @@ char daysOfTheWeek[7][12] = {"Sonntag", "Monday", "Tuesday", "Wednesday", "Thurs
 bool allowUpdate = false;
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN);
+ESP32Encoder encoder;
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
 Adafruit_SH1106 display(SDA, SCL);
 Adafruit_BME280 bmp;
@@ -372,7 +379,12 @@ void rotary_onButtonClick()
     {
       Serial.println("!------------!");
       Serial.println(testCriticalCO2lvl);
-      testCriticalCO2lvl = !testCriticalCO2lvl;
+      if(testCriticalCO2lvl == true){
+        testCriticalCO2lvl = false;
+      }else{
+        testCriticalCO2lvl = true;
+      }
+      //testCriticalCO2lvl = !testCriticalCO2lvl;
       Serial.println(testCriticalCO2lvl);
     }
     else if (menuPage == "3.6")
@@ -435,15 +447,18 @@ void activity()
 void rotary_loop()
 {
   //first lets handle rotary encoder button click
-  if (rotaryEncoder.currentButtonState() == BUT_RELEASED)
+  if (buttonPressUnhandeld == true)
   {
     //we can process it here or call separate function like:
+    buttonPressUnhandeld = false;
     rotary_onButtonClick();
   }
 
   //lets see if anything changed
-  int16_t encoderDelta = rotaryEncoder.encoderChanged();
-
+  //int16_t encoderDelta = rotaryEncoder.encoderChanged();
+  int16_t encoderDelta = encoder.getCount();
+  encoder.clearCount();
+  encoderDelta = encoderDelta/2;
   //optionally we can ignore whenever there is no change
   if (encoderDelta == 0)
     return;
@@ -853,13 +868,18 @@ void setup()
   if (rtc.lostPower())
   {
     Serial.println("RTC lost power, let's set the time!");
-    //rtc.adjust(DateTime(2020, 9, 30, 21, 37, 30));
+    //rtc.adjust(DateTime(2020, 10, 25, 15, 54, 30));
   }
 
-  rotaryEncoder.begin();
-  rotaryEncoder.setup([] { rotaryEncoder.readEncoder_ISR(); });
+  ESP32Encoder::useInternalWeakPullResistors=UP;
+  encoder.attachHalfQuad(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN);
+  encoder.setCount(20);
+  encoder.clearCount();
+  attachInterrupt(ROTARY_ENCODER_BUTTON_PIN, isr, FALLING);
+  ///rotaryEncoder.begin();
+  ///rotaryEncoder.setup([] { rotaryEncoder.readEncoder_ISR(); });
   //optionally we can set boundaries and if values should cycle or not
-  rotaryEncoder.setBoundaries(0, menuPageMax * 2, true); //minValue, maxValue, cycle values (when max go to min and vice versa)
+  ///rotaryEncoder.setBoundaries(0, menuPageMax * 2, true); //minValue, maxValue, cycle values (when max go to min and vice versa)
 
   bmp.begin(0x76);
   Wire.begin();
@@ -893,13 +913,15 @@ void setup()
   timerAlarmWrite(timer, 1000000, true);
   timerAlarmEnable(timer);
 
+
+
   // Prefill CO2 Logger
   for(int i = 0; i<=120; i++){
     //CO2.push((i*9)+400);
     CO2.push(400);
   }
   
-  SD.begin(SD_CS);  
+  /*SD.begin(SD_CS);  
   if(!SD.begin(SD_CS)) {
     Serial.println("Card Mount Failed");
     return;
@@ -908,9 +930,14 @@ void setup()
   if(cardType == CARD_NONE) {
     Serial.println("No SD card attached");
     return;
-  }
+  }*/
   Serial.println("Start");
 }
+
+void IRAM_ATTR isr() {
+  buttonPressUnhandeld = true;
+}
+
 int i = 2000;
 int ringUpdate = 0;
 
