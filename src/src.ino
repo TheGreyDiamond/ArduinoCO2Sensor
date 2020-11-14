@@ -13,7 +13,7 @@
 #include "FS.h"
 #include "SPIFFS.h"
 #include <WiFi.h>
-#include <WiFiClient.h>
+//#include <WiFiClient.h>
 #include <WiFiAP.h>
 #include <SPI.h>
 #include <Wire.h>
