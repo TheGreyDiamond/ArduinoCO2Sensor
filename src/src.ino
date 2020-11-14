@@ -10,7 +10,6 @@
     All text above, and the splash screen must be included in any redistribution
 *********************************************************************/
 
-#include "FS.h"
 #include "SPIFFS.h"
 #include <WiFi.h>
 //#include <WiFiClient.h>
@@ -25,23 +24,12 @@
 #include <WebServer.h>
 #include "RTClib.h"
 
-#include "SimpleBLE.h"
-
-#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
-#error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
-#endif
-
-//#include <BLEDevice.h>
-//#include <BLEUtils.h>
-//#include <BLEServer.h>
-
 #include <ESP32Encoder.h>
 
 #include "SparkFun_SGP30_Arduino_Library.h"
 #include "icons.c"
 #include <CircularBuffer.h>
 #include <math.h>
-//#include "SD.h"
 
 #define SDA 21
 #define SCL 22
@@ -53,8 +41,6 @@
 
 #define VERSION "V1.3.4 "
 
-#define SD_CS 5
-
 #define FORMAT_SPIFFS_IF_FAILED false
 
 #define LED_PIN 14
@@ -62,6 +48,7 @@
 
 // NeoPixel brightness, 0 (min) to 255 (max)
 int BRIGHTNESS = 40;
+
 
 #define DISPLAY_TIMOUT 8000
 
@@ -131,7 +118,7 @@ Adafruit_SH1106 display(SDA, SCL);
 Adafruit_BME280 bmp;
 RTC_DS3231 rtc;
 SGP30 co2Sensor;
-SimpleBLE ble;
+
 WebServer server(80);
 
 String getTimeInLogFormat()
@@ -194,7 +181,7 @@ void readFile(const char *path)
     Serial.write(file.read());
   }
 }
-
+/*
 void getLatestData()
 {
   Serial.println("LATEST DATA");
@@ -258,7 +245,7 @@ void deleteFile(const char *path)
   {
     Serial.println("- delete failed");
   }
-}
+}*/
 
 String getTimeAndStuff()
 {
@@ -412,7 +399,7 @@ void rotary_onButtonClick()
       }
       //testCriticalCO2lvl = !testCriticalCO2lvl;
     }
-    else if (menuPage == "3.7")
+    /*else if (menuPage == "3.7")
     {
       Serial.println("-------[DATA LOG DUMP]-------");
       //readFile("/log.txt");
@@ -422,7 +409,7 @@ void rotary_onButtonClick()
     {
       Serial.println("-------[DELETING LOG]-------");
       deleteFile("/log.txt");
-    }
+    }*/
     else if (menuPage == "4.0")
     {
       graphToPlot++;
@@ -788,7 +775,7 @@ boolean handleWindows()
     display.println(infoText);
     if (infoIcon == 1)
     {
-      display.drawXBitmap(57, 20, warningSign_bits, warningSign_height, warningSign_width, WHITE);
+      display.drawXBitmap(57, 20, tgd_logo_bits, tgd_logo_height, tgd_logo_width, WHITE);
     }
 
     display.display();
@@ -1032,7 +1019,7 @@ void setup()
     //rtc.adjust(DateTime(2020, 10, 25, 15, 54, 30));
   }
 
-  ble.begin("ESP32 SimpleBLE");
+  //ble.begin("t");
 
   ESP32Encoder::useInternalWeakPullResistors = UP;
   encoder.attachHalfQuad(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN);
@@ -1093,6 +1080,7 @@ void setup()
     Serial.println("No SD card attached");
     return;
   }*/
+
   Serial.println("Start");
 }
 
@@ -1287,7 +1275,7 @@ void loop()
         display.display();
         isPagePressable = true;
       }
-      if (menuPage == "3.7")
+      /*if (menuPage == "3.7")
       {
         display.clearDisplay();
         display.invertDisplay(false);
@@ -1307,10 +1295,10 @@ void loop()
         display.setCursor(16, 48);
         display.setTextColor(WHITE);
         display.println("Delete log");
-        display.drawXBitmap(48, 10, warningSign_bits, warningSign_height, warningSign_width, WHITE);
+        //display.drawXBitmap(48, 10, warningSign_bits, warningSign_height, warningSign_width, WHITE);
         display.display();
         isPagePressable = true;
-      }
+      }*/
     }
   }
   i++;
