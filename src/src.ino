@@ -25,7 +25,11 @@
 #include <WebServer.h>
 #include "RTClib.h"
 
-#include "AiEsp32RotaryEncoder.h"
+#include "BluetoothSerial.h"
+
+//#include <BLEDevice.h>
+//#include <BLEUtils.h>
+//#include <BLEServer.h>
 
 #include <ESP32Encoder.h>
 
@@ -50,8 +54,8 @@
 #define FORMAT_SPIFFS_IF_FAILED false
 
 #define LED_PIN 14
-// How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 16
+
 // NeoPixel brightness, 0 (min) to 255 (max)
 int BRIGHTNESS = 40;
 
@@ -66,7 +70,7 @@ String menuPage = "0.0";
 int menuPageMax = 4;
 int menuPageMin = 0;
 int menuSubPageMin = 1;
-int menuSubPageMax = 3;
+int menuSubPageMax = 4;
 int timeSinceShow = 0;
 
 CircularBuffer<float, 120> temperature;
@@ -79,6 +83,7 @@ CircularBuffer<float, 120> TVOC;
 bool isPagePressable = false;
 int subMenu = 0;
 bool testCriticalCO2lvl = false;
+bool partyMode = false;
 
 bool buttonPressUnhandeld = false;
 
@@ -114,7 +119,6 @@ char daysOfTheWeek[7][12] = {"Sonntag", "Monday", "Tuesday", "Wednesday", "Thurs
 
 bool allowUpdate = false;
 
-AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN);
 ESP32Encoder encoder;
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
 Adafruit_SH1106 display(SDA, SCL);
@@ -352,7 +356,7 @@ void rotary_onButtonClick()
     if (menuPage == "3.0") // Time to open settings
     {
       menuPage = "3.1";
-      menuSubPageMax = 7;
+      menuSubPageMax = 8;
     }
     else if (menuPage == "3.1")
     {
@@ -389,11 +393,20 @@ void rotary_onButtonClick()
     }
     else if (menuPage == "3.6")
     {
+      if(partyMode == true){
+        partyMode = false;
+      }else{
+        partyMode = true;
+      }
+      //testCriticalCO2lvl = !testCriticalCO2lvl;
+    }
+    else if (menuPage == "3.7")
+    {
       Serial.println("-------[DATA LOG DUMP]-------");
       //readFile("/log.txt");
       getLatestData();
     }
-    else if (menuPage == "3.7")
+    else if (menuPage == "3.8")
     {
       Serial.println("-------[DELETING LOG]-------");
       deleteFile("/log.txt");
@@ -510,39 +523,7 @@ void rotary_loop()
       }
     }
   }
-
-  //for other cases we want to know what is current value. Additionally often we only want if something changed
-  //example: when using rotary encoder to set termostat temperature, or sound volume etc
-
-  //if value is changed compared to our last read
-  if (encoderDelta != 0)
-  {
-    //now we need current value
-    int16_t encoderValue = rotaryEncoder.readEncoder();
-    //process new value. Here is simple output.
-    Serial.print("Value: ");
-    Serial.println(encoderValue);
-  }
 }
-
-/*if (SPIFFS.exists("/login.html"))
-    {
-
-      Serial.println("login.html exists!");
-
-      AsyncResponseStream *response = request->beginResponseStream("text/html");
-
-      Serial.println(request->url().c_str());
-
-        File file = SPIFFS.open("/login.html");
-
-        while (file.available())
-        {
-          response->write(file.read());
-        }
-      request->send(response);
-    }
-*/
 
 void plotGraph(int whatToPlot){
 
@@ -562,6 +543,27 @@ void plotGraph(int whatToPlot){
   display.display();
 }
 
+void theaterChaseRainbow(int wait) {
+  int firstPixelHue = 0;     // First pixel starts at red (hue 0)
+  for(int a=0; a<30; a++) {  // Repeat 30 times...
+    for(int b=0; b<3; b++) { //  'b' counts from 0 to 2...
+      strip.clear();         //   Set all pixels in RAM to 0 (off)
+      // 'c' counts up from 'b' to end of strip in increments of 3...
+      for(int c=b; c<strip.numPixels(); c += 3) {
+        // hue of pixel 'c' is offset by an amount to make one full
+        // revolution of the color wheel (range 65536) along the length
+        // of the strip (strip.numPixels() steps):
+        int      hue   = firstPixelHue + c * 65536L / strip.numPixels();
+        uint32_t color = strip.gamma32(strip.ColorHSV(hue)); // hue -> RGB
+        strip.setPixelColor(c, color); // Set pixel 'c' to value 'color'
+      }
+      strip.show();                // Update strip with new contents
+      delay(wait);                 // Pause for a moment
+      firstPixelHue += 65536 / 90; // One cycle of color wheel over 90 frames
+    }
+  }
+}
+
 void updateLEDring()
 {
   /* 
@@ -575,7 +577,7 @@ void updateLEDring()
   // co2Sensor.measureAirQuality();
   int mesValue = co2Sensor.CO2;
   int currentAlarmLvl = 1;
-  if (testCriticalCO2lvl == false)
+  if (testCriticalCO2lvl == false && partyMode == false)
   {
     if (mesValue < 400)
     {
@@ -619,7 +621,7 @@ void updateLEDring()
   {
     updateRing = false;
   }
-  if (updateRing && testCriticalCO2lvl == false)
+  if (updateRing && testCriticalCO2lvl == false && partyMode == false)
   {
     Serial.println("Actually ring update");
     if (currentAlarmLvl == 2)
@@ -650,6 +652,11 @@ void updateLEDring()
       colorWipe(strip.Color(255, 0, 0, 0), 50);
     }
   }
+  if(partyMode)
+  {
+    theaterChaseRainbow(40);
+  }
+  delay(10);
 }
 
 void makeInfoWindow(String text, int icon)
@@ -1002,10 +1009,6 @@ void loop()
   handleActivity();
   rotary_loop();
   delay(50);
-  if (millis() > 20000)
-  {
-    rotaryEncoder.enable();
-  }
 
   if (enableLogging)
   {
@@ -1168,12 +1171,24 @@ void loop()
         display.setTextSize(1);
         display.setCursor(16, 48);
         display.setTextColor(WHITE);
-        display.println("Output whole log to console");
+        display.println("Party mode");
         display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
         display.display();
         isPagePressable = true;
       }
       if (menuPage == "3.7")
+      {
+        display.clearDisplay();
+        display.invertDisplay(false);
+        display.setTextSize(1);
+        display.setCursor(16, 48);
+        display.setTextColor(WHITE);
+        display.println("Output whole log to console");
+        display.drawXBitmap(48, 10, cog_wheel_bits, cog_wheel_height, cog_wheel_width, WHITE);
+        display.display();
+        isPagePressable = true;
+      }
+      if (menuPage == "3.8")
       {
         display.clearDisplay();
         display.invertDisplay(false);
