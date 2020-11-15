@@ -39,7 +39,7 @@
 #define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN -1
 
-#define VERSION "V1.3.4 "
+#define VERSION "V1.3.5 "
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
@@ -583,7 +583,7 @@ void plotGraph(int whatToPlot)
     display.invertDisplay(false);
     while (dataPointToDrawIndex <= 120)
     {
-      drawValue = screenResY - (int)roundf(TVOC[dataPointToDrawIndex] * scaleY);
+      drawValue = screenResY - (int)roundf(temperature[dataPointToDrawIndex] * scaleY);
       display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
       //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
       dataPointToDrawIndex++;
@@ -593,7 +593,7 @@ void plotGraph(int whatToPlot)
   }
   if (whatToPlot == 3)
   {
-    float maximum = 100;
+    float maximum = 120;
     float screenResY = 60;
     float scaleY = screenResY / maximum;
     int dataPointToDrawIndex = 0;
@@ -602,7 +602,7 @@ void plotGraph(int whatToPlot)
     display.invertDisplay(false);
     while (dataPointToDrawIndex <= 120)
     {
-      drawValue = screenResY - (int)roundf(TVOC[dataPointToDrawIndex] * scaleY);
+      drawValue = screenResY - (int)roundf(humidity[dataPointToDrawIndex] * scaleY);
       display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
       //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
       dataPointToDrawIndex++;
@@ -621,7 +621,7 @@ void plotGraph(int whatToPlot)
     display.invertDisplay(false);
     while (dataPointToDrawIndex <= 120)
     {
-      drawValue = screenResY - (int)roundf(TVOC[dataPointToDrawIndex] * scaleY);
+      drawValue = screenResY - (int)roundf(preasure[dataPointToDrawIndex] * scaleY);
       display.drawPixel(dataPointToDrawIndex, drawValue, WHITE);
       //Serial.println("Draw X: " + String(drawValue) + " Input value: " + String(CO2[dataPointToDrawIndex]) + " non Rounded Value: " + String(CO2[dataPointToDrawIndex] * scaleY) + " Scale: " + String(scaleY));
       dataPointToDrawIndex++;
