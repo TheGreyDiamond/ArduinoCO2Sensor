@@ -740,7 +740,7 @@ void updateLEDring()
     }
     if (currentAlarmLvl == 5)
     {
-      colorWipe(strip.Color(255, 165, 0, 0), 50);
+      colorWipe(strip.Color(255, 150, 0, 0), 50);
     }
     if (currentAlarmLvl == 6)
     {
