@@ -49,7 +49,6 @@
 // NeoPixel brightness, 0 (min) to 255 (max)
 int BRIGHTNESS = 40;
 
-
 #define DISPLAY_TIMOUT 8000
 
 bool updateRing = true;
@@ -683,19 +682,19 @@ void updateLEDring()
     {
       currentAlarmLvl = 2;
     }
-    if (mesValue >= 400 and mesValue <= 1000)
+    if (mesValue >= 400 and mesValue <= 800)
     {
       currentAlarmLvl = 3;
     }
-    if (mesValue >= 1001 and mesValue <= 2000)
+    if (mesValue >= 801 and mesValue <= 1800)
     {
       currentAlarmLvl = 4;
     }
-    if (mesValue >= 2001 and mesValue <= 5000)
+    if (mesValue >= 1801 and mesValue <= 4500)
     {
       currentAlarmLvl = 5;
     }
-    if (mesValue >= 5000 and mesValue <= 8000)
+    if (mesValue >= 4501 and mesValue <= 8000)
     {
       currentAlarmLvl = 6;
     }
@@ -706,10 +705,13 @@ void updateLEDring()
   }
   else
   {
-    colorWipe(strip.Color(255, 0, 0, 0), 50);
-    delay(200);
-    colorWipe(strip.Color(0, 0, 0, 0), 1);
-    colorWipe(strip.Color(255, 0, 0, 0), 50);
+    if (testCriticalCO2lvl)
+    {
+      colorWipe(strip.Color(255, 0, 0, 0), 50);
+      delay(200);
+      colorWipe(strip.Color(0, 0, 0, 0), 1);
+      colorWipe(strip.Color(255, 0, 0, 0), 50);
+    }
   }
 
   if (currentAlarmLvl != lastAlarmLvl)
@@ -1089,8 +1091,6 @@ void setup()
 
   Serial.println("Start");
 }
-
-
 
 int i = 2000;
 int ringUpdate = 0;
