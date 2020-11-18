@@ -39,7 +39,7 @@
 #define ROTARY_ENCODER_BUTTON_PIN 17
 #define ROTARY_ENCODER_VCC_PIN -1
 
-#define VERSION "V1.3.5 "
+#define VERSION "V1.3.6 "
 
 #define FORMAT_SPIFFS_IF_FAILED false
 
@@ -345,7 +345,7 @@ void rotary_onButtonClick()
 {
   if (isPagePressable)
   {
-
+    activity();
     if (menuPage == "3.0") // Time to open settings
     {
       menuPage = "3.1";
@@ -470,8 +470,9 @@ void rotary_loop()
   if (buttonPressUnhandeld == true)
   {
     //we can process it here or call separate function like:
-    buttonPressUnhandeld = false;
     rotary_onButtonClick();
+    delay(10);
+    buttonPressUnhandeld = false;
   }
 
   //lets see if anything changed
@@ -551,6 +552,7 @@ void plotGraph(int whatToPlot)
       dataPointToDrawIndex++;
     }
     display.setCursor(0, 0);
+    display.setTextSize(1);
     display.println("CO2");
   }
   if (whatToPlot == 1)
@@ -570,6 +572,7 @@ void plotGraph(int whatToPlot)
       dataPointToDrawIndex++;
     }
     display.setCursor(0, 0);
+    display.setTextSize(1);
     display.println("TVOC");
   }
   if (whatToPlot == 2)
@@ -589,6 +592,7 @@ void plotGraph(int whatToPlot)
       dataPointToDrawIndex++;
     }
     display.setCursor(0, 0);
+    display.setTextSize(1);
     display.println("Temperature");
   }
   if (whatToPlot == 3)
@@ -608,6 +612,7 @@ void plotGraph(int whatToPlot)
       dataPointToDrawIndex++;
     }
     display.setCursor(0, 0);
+    display.setTextSize(1);
     display.println("Humidity");
   }
   if (whatToPlot == 4)
@@ -627,6 +632,7 @@ void plotGraph(int whatToPlot)
       dataPointToDrawIndex++;
     }
     display.setCursor(0, 0);
+    display.setTextSize(1);
     display.println("Pressure");
   }
 
