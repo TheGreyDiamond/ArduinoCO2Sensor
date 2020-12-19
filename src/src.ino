@@ -395,6 +395,7 @@ void rotary_onButtonClick()
       else
       {
         partyMode = true;
+        makeInfoWindow("Ich hasse dich manchmal...", 1);
       }
       //testCriticalCO2lvl = !testCriticalCO2lvl;
     }
@@ -675,6 +676,7 @@ void updateLEDring()
   */
   // co2Sensor.measureAirQuality();
   int mesValue = co2Sensor.CO2;
+  mesValue = mesValue + int(co2Sensor.TVOC / 4);
   int currentAlarmLvl = 1;
   if (testCriticalCO2lvl == false && partyMode == false)
   {
